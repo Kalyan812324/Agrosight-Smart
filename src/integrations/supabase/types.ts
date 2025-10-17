@@ -7,23 +7,202 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.12 (cd3cf9e)"
   }
   public: {
     Tables: {
-      [_ in never]: never
+      crop_predictions: {
+        Row: {
+          actual_yield: number | null
+          area_hectares: number
+          confidence_score: number | null
+          created_at: string | null
+          crop_type: string
+          district: string | null
+          financial_projection: Json | null
+          humidity: number | null
+          id: string
+          notes: string | null
+          predicted_yield: number
+          rainfall_mm: number
+          recommendations: Json | null
+          risk_assessment: Json | null
+          season: string
+          soil_type: string
+          state: string
+          temperature: number | null
+          total_production: number
+          user_id: string | null
+        }
+        Insert: {
+          actual_yield?: number | null
+          area_hectares: number
+          confidence_score?: number | null
+          created_at?: string | null
+          crop_type: string
+          district?: string | null
+          financial_projection?: Json | null
+          humidity?: number | null
+          id?: string
+          notes?: string | null
+          predicted_yield: number
+          rainfall_mm: number
+          recommendations?: Json | null
+          risk_assessment?: Json | null
+          season: string
+          soil_type: string
+          state: string
+          temperature?: number | null
+          total_production: number
+          user_id?: string | null
+        }
+        Update: {
+          actual_yield?: number | null
+          area_hectares?: number
+          confidence_score?: number | null
+          created_at?: string | null
+          crop_type?: string
+          district?: string | null
+          financial_projection?: Json | null
+          humidity?: number | null
+          id?: string
+          notes?: string | null
+          predicted_yield?: number
+          rainfall_mm?: number
+          recommendations?: Json | null
+          risk_assessment?: Json | null
+          season?: string
+          soil_type?: string
+          state?: string
+          temperature?: number | null
+          total_production?: number
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      historical_yields: {
+        Row: {
+          avg_yield: number
+          created_at: string | null
+          crop_type: string
+          data_source: string | null
+          district: string | null
+          id: string
+          rainfall_mm: number | null
+          soil_type: string | null
+          state: string
+          temperature: number | null
+          year: number
+        }
+        Insert: {
+          avg_yield: number
+          created_at?: string | null
+          crop_type: string
+          data_source?: string | null
+          district?: string | null
+          id?: string
+          rainfall_mm?: number | null
+          soil_type?: string | null
+          state: string
+          temperature?: number | null
+          year: number
+        }
+        Update: {
+          avg_yield?: number
+          created_at?: string | null
+          crop_type?: string
+          data_source?: string | null
+          district?: string | null
+          id?: string
+          rainfall_mm?: number | null
+          soil_type?: string | null
+          state?: string
+          temperature?: number | null
+          year?: number
+        }
+        Relationships: []
+      }
+      user_farms: {
+        Row: {
+          created_at: string | null
+          crops_grown: string[] | null
+          district: string | null
+          farm_name: string
+          id: string
+          location: Json | null
+          soil_test_results: Json | null
+          state: string
+          total_area: number
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          crops_grown?: string[] | null
+          district?: string | null
+          farm_name: string
+          id?: string
+          location?: Json | null
+          soil_test_results?: Json | null
+          state: string
+          total_area: number
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          crops_grown?: string[] | null
+          district?: string | null
+          farm_name?: string
+          id?: string
+          location?: Json | null
+          soil_test_results?: Json | null
+          state?: string
+          total_area?: number
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +329,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+    },
   },
 } as const
