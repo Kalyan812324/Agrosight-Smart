@@ -88,7 +88,7 @@ const Weather = () => {
     setLoading(true);
     try {
       const response = await fetch(
-        "https://xllpedrhhzoljkfvkgef.supabase.co/functions/v1/weather-api",
+        "https://xllpedrhhzoljkfvkgef.supabase.co/functions/v1/get-weather",
         {
           method: "POST",
           headers: {
