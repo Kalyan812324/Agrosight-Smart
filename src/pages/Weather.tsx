@@ -108,23 +108,109 @@ const Weather = () => {
       const data = await response.json();
       console.log("Weather API Response:", data);
       
+      // Helper function to map weather codes to descriptions
+      const getWeatherDescription = (code: number): string => {
+        const weatherCodes: { [key: number]: string } = {
+          0: "Clear sky",
+          1: "Mainly clear",
+          2: "Partly cloudy",
+          3: "Overcast",
+          45: "Foggy",
+          48: "Depositing rime fog",
+          51: "Light drizzle",
+          53: "Moderate drizzle",
+          55: "Dense drizzle",
+          61: "Slight rain",
+          63: "Moderate rain",
+          65: "Heavy rain",
+          71: "Slight snow",
+          73: "Moderate snow",
+          75: "Heavy snow",
+          77: "Snow grains",
+          80: "Slight rain showers",
+          81: "Moderate rain showers",
+          82: "Violent rain showers",
+          85: "Slight snow showers",
+          86: "Heavy snow showers",
+          95: "Thunderstorm",
+          96: "Thunderstorm with slight hail",
+          99: "Thunderstorm with heavy hail"
+        };
+        return weatherCodes[code] || "Unknown";
+      };
+      
       // Map the API response to our expected format
       const mappedData: WeatherData = {
         location: {
-          name: data.location?.name || `${latitude.toFixed(2)}°, ${longitude.toFixed(2)}°`,
+          name: `${latitude.toFixed(2)}°, ${longitude.toFixed(2)}°`,
           lat: latitude,
           lon: longitude,
         },
-        current: data.current || {},
-        forecast: data.forecast || { daily: [], hourly: [] },
-        agricultural_insights: data.agricultural_insights || {
-          irrigation: { priority: "N/A", recommendation: "No data available" },
-          crop_stress: { level: "N/A", details: "No data available" },
-          pest_risk: { level: "N/A", details: "No data available" },
-          disease_risk: { level: "N/A", details: "No data available" },
+        current: {
+          temp: data.current?.temperature_2m || 0,
+          feels_like: data.current?.apparent_temperature || 0,
+          humidity: data.current?.relative_humidity_2m || 0,
+          pressure: data.current?.pressure_msl || 0,
+          wind_speed: (data.current?.wind_speed_10m || 0) / 3.6, // Convert km/h to m/s
+          clouds: data.current?.cloud_cover || 0,
+          weather: {
+            description: getWeatherDescription(data.current?.weather_code || 0),
+            icon: String(data.current?.weather_code || 0)
+          },
+          sunrise: new Date(data.daily?.sunrise?.[0] || Date.now()).getTime() / 1000,
+          sunset: new Date(data.daily?.sunset?.[0] || Date.now()).getTime() / 1000,
         },
-        optimal_activities: data.optimal_activities || [],
-        warnings: data.warnings || [],
+        forecast: {
+          daily: (data.daily?.time || []).slice(0, 7).map((date: string, index: number) => ({
+            date,
+            temp_max: data.daily?.temperature_2m_max?.[index] || 0,
+            temp_min: data.daily?.temperature_2m_min?.[index] || 0,
+            weather: getWeatherDescription(data.daily?.weather_code?.[index] || 0),
+            rain_probability: data.daily?.precipitation_probability_max?.[index] || 0,
+          })),
+          hourly: (data.hourly?.time || []).slice(0, 24).map((time: string, index: number) => ({
+            time: new Date(time).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+            temp: data.hourly?.temperature_2m?.[index] || 0,
+            humidity: data.hourly?.relative_humidity_2m?.[index] || 0,
+            rain_probability: data.hourly?.precipitation_probability?.[index] || 0,
+          })),
+        },
+        agricultural_insights: {
+          irrigation: {
+            priority: data.current?.precipitation > 5 ? "Low" : "Medium",
+            recommendation: data.current?.precipitation > 5 
+              ? "Recent rainfall detected. Reduce irrigation." 
+              : "Monitor soil moisture levels regularly."
+          },
+          crop_stress: {
+            level: data.current?.temperature_2m > 35 ? "High" : "Low",
+            details: data.current?.temperature_2m > 35
+              ? "High temperatures may cause heat stress."
+              : "Temperature within optimal range."
+          },
+          pest_risk: {
+            level: data.current?.relative_humidity_2m > 80 ? "Medium" : "Low",
+            details: data.current?.relative_humidity_2m > 80
+              ? "High humidity increases pest activity."
+              : "Humidity levels are acceptable."
+          },
+          disease_risk: {
+            level: data.current?.relative_humidity_2m > 85 ? "High" : "Low",
+            details: data.current?.relative_humidity_2m > 85
+              ? "Very high humidity increases disease risk."
+              : "Disease risk is minimal."
+          },
+        },
+        optimal_activities: [
+          data.current?.precipitation === 0 ? "Field work" : null,
+          data.current?.wind_speed_10m < 20 ? "Spraying" : null,
+          data.current?.temperature_2m < 30 ? "Planting" : null,
+        ].filter((a): a is string => a !== null),
+        warnings: [
+          data.current?.temperature_2m > 40 ? "Extreme heat warning" : null,
+          data.current?.wind_speed_10m > 50 ? "High wind warning" : null,
+          data.current?.precipitation > 50 ? "Heavy rainfall warning" : null,
+        ].filter((w): w is string => w !== null),
       };
       
       setWeatherData(mappedData);
