@@ -3,7 +3,6 @@ import { Link, useLocation } from "react-router-dom";
 import { Menu, X, Sprout, BarChart3, Calculator, TrendingUp, Cloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import UserMenu from "./UserMenu";
 
 const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -52,7 +51,6 @@ const Navigation = () => {
                 </Link>
               );
             })}
-            <UserMenu />
           </div>
 
           {/* Mobile menu button */}
