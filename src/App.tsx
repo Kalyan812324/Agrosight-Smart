@@ -7,6 +7,7 @@ import Navigation from "./components/Navigation";
 import FloatingVoiceButton from "./components/FloatingVoiceButton";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
+import Weather from "./pages/Weather";
 import YieldPredictor from "./pages/YieldPredictor";
 import MarketForecast from "./pages/MarketForecast";
 import LoanCalculator from "./pages/LoanCalculator";
@@ -24,6 +25,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/weather" element={<Weather />} />
           <Route path="/yield-predictor" element={<YieldPredictor />} />
           <Route path="/market-forecast" element={<MarketForecast />} />
           <Route path="/loan-calculator" element={<LoanCalculator />} />
