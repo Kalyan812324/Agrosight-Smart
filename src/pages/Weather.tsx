@@ -101,11 +101,33 @@ const Weather = () => {
       );
 
       if (!response.ok) {
-        throw new Error("Failed to fetch weather data");
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch weather data");
       }
 
       const data = await response.json();
-      setWeatherData(data);
+      console.log("Weather API Response:", data);
+      
+      // Map the API response to our expected format
+      const mappedData: WeatherData = {
+        location: {
+          name: data.location?.name || `${latitude.toFixed(2)}°, ${longitude.toFixed(2)}°`,
+          lat: latitude,
+          lon: longitude,
+        },
+        current: data.current || {},
+        forecast: data.forecast || { daily: [], hourly: [] },
+        agricultural_insights: data.agricultural_insights || {
+          irrigation: { priority: "N/A", recommendation: "No data available" },
+          crop_stress: { level: "N/A", details: "No data available" },
+          pest_risk: { level: "N/A", details: "No data available" },
+          disease_risk: { level: "N/A", details: "No data available" },
+        },
+        optimal_activities: data.optimal_activities || [],
+        warnings: data.warnings || [],
+      };
+      
+      setWeatherData(mappedData);
       toast({
         title: "Weather data updated",
         description: "Successfully fetched latest weather information",
