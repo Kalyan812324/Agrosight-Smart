@@ -35,7 +35,7 @@ export type Database = {
           state: string
           temperature: number | null
           total_production: number
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           actual_yield?: number | null
@@ -57,7 +57,7 @@ export type Database = {
           state: string
           temperature?: number | null
           total_production: number
-          user_id?: string | null
+          user_id: string
         }
         Update: {
           actual_yield?: number | null
@@ -79,7 +79,7 @@ export type Database = {
           state?: string
           temperature?: number | null
           total_production?: number
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: []
       }

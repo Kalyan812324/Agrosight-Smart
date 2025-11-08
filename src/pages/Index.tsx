@@ -65,7 +65,7 @@ const Index = () => {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <Button variant="hero" size="lg" className="text-lg px-8 py-3" asChild>
-                <Link to="/dashboard">Start Smart Farming</Link>
+                <Link to="/auth">Start Smart Farming</Link>
               </Button>
               <Button variant="outline" size="lg" className="text-lg px-8 py-3" asChild>
                 <Link to="/yield-predictor">Try Yield Predictor</Link>
@@ -126,7 +126,7 @@ const Index = () => {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button variant="secondary" size="lg" className="text-lg px-8 py-3" asChild>
-              <Link to="/dashboard">Get Started Now</Link>
+              <Link to="/auth">Get Started Now</Link>
             </Button>
             <Button variant="outline" size="lg" className="text-lg px-8 py-3 bg-white/10 border-white/20 text-primary-foreground hover:bg-white/20" asChild>
               <Link to="/market-forecast">View Demo</Link>
