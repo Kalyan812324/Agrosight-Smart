@@ -51,7 +51,7 @@ const MarketForecast = () => {
           record.Commodity.toLowerCase().includes(selectedCrop.toLowerCase())
         );
 
-        if (selectedState && selectedState !== "all") {
+        if (selectedState) {
           filtered = filtered.filter((record: MarketData) => 
             record.State.toLowerCase() === selectedState.toLowerCase()
           );
@@ -171,7 +171,7 @@ const MarketForecast = () => {
                       <SelectValue placeholder="All states" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All States</SelectItem>
+                      <SelectItem value="">All States</SelectItem>
                       <SelectItem value="Maharashtra">Maharashtra</SelectItem>
                       <SelectItem value="Punjab">Punjab</SelectItem>
                       <SelectItem value="Haryana">Haryana</SelectItem>
