@@ -2,31 +2,38 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BarChart3, TrendingUp, TrendingDown, Minus, Calendar } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { BarChart3, TrendingUp, TrendingDown, Minus, Calendar, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+interface MarketData {
+  State: string;
+  District: string;
+  Market: string;
+  Commodity: string;
+  Variety: string;
+  Grade: string;
+  Arrival_Date: string;
+  Min_Price: string;
+  Max_Price: string;
+  Modal_Price: string;
+}
 
 const MarketForecast = () => {
   const { toast } = useToast();
   const [selectedCrop, setSelectedCrop] = useState("");
-  const [forecast, setForecast] = useState(null);
+  const [selectedState, setSelectedState] = useState("");
+  const [marketData, setMarketData] = useState<MarketData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const crops = [
-    { name: "Rice", unit: "₹/quintal" },
-    { name: "Wheat", unit: "₹/quintal" },
-    { name: "Cotton", unit: "₹/quintal" },
-    { name: "Sugarcane", unit: "₹/ton" },
-    { name: "Maize", unit: "₹/quintal" },
-    { name: "Onion", unit: "₹/quintal" },
-    { name: "Potato", unit: "₹/quintal" },
-    { name: "Tomato", unit: "₹/quintal" }
-  ];
+  const API_KEY = "579b464db66ec23bdd000001cdd3946e44ce4aad7209ff7b23ac571b";
+  const API_URL = `https://api.data.gov.in/resource/35985678-0d79-46b4-9ed6-6f13308a1d24?api-key=${API_KEY}&format=json&limit=1000`;
 
-  const generateForecast = () => {
+  const fetchMarketData = async () => {
     if (!selectedCrop) {
       toast({
         title: "Select a Crop",
-        description: "Please select a crop to view price forecast",
+        description: "Please select a crop to view market prices",
         variant: "destructive"
       });
       return;
@@ -34,84 +41,67 @@ const MarketForecast = () => {
 
     setIsLoading(true);
 
-    setTimeout(() => {
-      const basePrice = {
-        "Rice": 2200,
-        "Wheat": 2100,
-        "Cotton": 5800,
-        "Sugarcane": 350,
-        "Maize": 1900,
-        "Onion": 1500,
-        "Potato": 1200,
-        "Tomato": 2500
-      }[selectedCrop] || 2000;
-
-      const dates = [];
-      const prices = [];
-      const trends = [];
+    try {
+      const response = await fetch(API_URL);
+      const data = await response.json();
       
-      for (let i = 0; i < 15; i++) {
-        const date = new Date();
-        date.setDate(date.getDate() + i);
-        dates.push(date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }));
-        
-        // Generate realistic price fluctuations
-        const volatility = 0.05; // 5% daily volatility
-        const trend = Math.sin(i * 0.3) * 0.02; // Slight trend component
-        const randomChange = (Math.random() - 0.5) * volatility;
-        const priceChange = trend + randomChange;
-        
-        const currentPrice = i === 0 
-          ? basePrice 
-          : prices[i - 1] * (1 + priceChange);
-        
-        prices.push(Math.round(currentPrice));
-        
-        // Determine trend
-        if (i > 0) {
-          const change = ((prices[i] - prices[i - 1]) / prices[i - 1]) * 100;
-          if (change > 0.5) trends.push('up');
-          else if (change < -0.5) trends.push('down');
-          else trends.push('stable');
-        } else {
-          trends.push('stable');
+      if (data.records) {
+        // Filter data by selected crop and state
+        let filtered = data.records.filter((record: MarketData) => 
+          record.Commodity.toLowerCase().includes(selectedCrop.toLowerCase())
+        );
+
+        if (selectedState) {
+          filtered = filtered.filter((record: MarketData) => 
+            record.State.toLowerCase() === selectedState.toLowerCase()
+          );
         }
+
+        // Sort by date (most recent first)
+        filtered.sort((a: MarketData, b: MarketData) => {
+          const dateA = new Date(a.Arrival_Date.split('/').reverse().join('-'));
+          const dateB = new Date(b.Arrival_Date.split('/').reverse().join('-'));
+          return dateB.getTime() - dateA.getTime();
+        });
+
+        setMarketData(filtered.slice(0, 50)); // Show latest 50 records
+        
+        toast({
+          title: "Data Loaded",
+          description: `Found ${filtered.length} market price records for ${selectedCrop}`
+        });
       }
-
-      const avgPrice = Math.round(prices.reduce((a, b) => a + b, 0) / prices.length);
-      const minPrice = Math.min(...prices);
-      const maxPrice = Math.max(...prices);
-      const currentPrice = prices[0];
-      const weekChange = ((prices[6] - currentPrice) / currentPrice * 100).toFixed(1);
-
-      setForecast({
-        crop: selectedCrop,
-        unit: crops.find(c => c.name === selectedCrop)?.unit || "₹/quintal",
-        dates,
-        prices,
-        trends,
-        stats: {
-          current: currentPrice,
-          average: avgPrice,
-          min: minPrice,
-          max: maxPrice,
-          weekChange: parseFloat(weekChange)
-        },
-        insights: [
-          parseFloat(weekChange) > 0 ? "Prices expected to rise in the coming week" : "Prices may decline in the near term",
-          "Market volatility is within normal range",
-          "Consider market timing for optimal sales"
-        ]
-      });
-
-      setIsLoading(false);
-      
+    } catch (error) {
       toast({
-        title: "Forecast Generated",
-        description: `15-day price forecast for ${selectedCrop} is ready`
+        title: "Error",
+        description: "Failed to fetch market data. Please try again.",
+        variant: "destructive"
       });
-    }, 1500);
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  const getStats = () => {
+    if (marketData.length === 0) return null;
+
+    const prices = marketData.map(d => parseFloat(d.Modal_Price));
+    const avgPrice = Math.round(prices.reduce((a, b) => a + b, 0) / prices.length);
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+    const latestPrice = prices[0];
+
+    // Calculate trend
+    const recentPrices = prices.slice(0, 5);
+    const olderPrices = prices.slice(5, 10);
+    const recentAvg = recentPrices.reduce((a, b) => a + b, 0) / recentPrices.length;
+    const olderAvg = olderPrices.reduce((a, b) => a + b, 0) / (olderPrices.length || 1);
+    const trend = recentAvg > olderAvg ? 'up' : recentAvg < olderAvg ? 'down' : 'stable';
+
+    return { avgPrice, minPrice, maxPrice, latestPrice, trend };
+  };
+
+  const stats = getStats();
 
   const getTrendIcon = (trend) => {
     switch (trend) {
@@ -134,148 +124,175 @@ const MarketForecast = () => {
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-3xl md:text-4xl font-bold text-primary mb-4">
-            Market Price Forecaster
+            Real-Time Market Prices
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Get 15-day price forecasts using ARIMA and Prophet algorithms to plan your sales strategy.
+            Live agricultural commodity prices from Government of India markets across the country.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Crop Selection */}
-          <Card className="bg-gradient-card border-0 shadow-card lg:col-span-1">
+        <div className="grid grid-cols-1 gap-8">
+          {/* Filters */}
+          <Card className="bg-gradient-card border-0 shadow-card">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <BarChart3 className="h-6 w-6 text-primary" />
-                <span>Select Crop</span>
+                <span>Market Data Filters</span>
               </CardTitle>
               <CardDescription>
-                Choose a crop to view price forecast
+                Select crop and state to view real market prices
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <Select onValueChange={setSelectedCrop}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select crop for forecast" />
-                </SelectTrigger>
-                <SelectContent>
-                  {crops.map(crop => (
-                    <SelectItem key={crop.name} value={crop.name}>
-                      {crop.name} ({crop.unit})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Crop/Commodity</label>
+                  <Select onValueChange={setSelectedCrop}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select crop" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Rice">Rice</SelectItem>
+                      <SelectItem value="Wheat">Wheat</SelectItem>
+                      <SelectItem value="Maize">Maize</SelectItem>
+                      <SelectItem value="Cotton">Cotton</SelectItem>
+                      <SelectItem value="Onion">Onion</SelectItem>
+                      <SelectItem value="Potato">Potato</SelectItem>
+                      <SelectItem value="Tomato">Tomato</SelectItem>
+                      <SelectItem value="Mataki">Mataki</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <Button 
-                variant="hero" 
-                className="w-full" 
-                onClick={generateForecast}
-                disabled={isLoading}
-              >
-                {isLoading ? "Generating..." : "Generate Forecast"}
-              </Button>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">State (Optional)</label>
+                  <Select onValueChange={setSelectedState}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All states" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">All States</SelectItem>
+                      <SelectItem value="Maharashtra">Maharashtra</SelectItem>
+                      <SelectItem value="Punjab">Punjab</SelectItem>
+                      <SelectItem value="Haryana">Haryana</SelectItem>
+                      <SelectItem value="Karnataka">Karnataka</SelectItem>
+                      <SelectItem value="Tamil Nadu">Tamil Nadu</SelectItem>
+                      <SelectItem value="Andhra Pradesh">Andhra Pradesh</SelectItem>
+                      <SelectItem value="Telangana">Telangana</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              {forecast && (
-                <div className="mt-6 space-y-4">
-                  <h3 className="font-semibold text-primary">Quick Stats</h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-primary/5 p-3 rounded-lg">
-                      <p className="text-xs text-muted-foreground">Current Price</p>
-                      <p className="font-bold text-primary">₹{forecast.stats.current}</p>
-                    </div>
-                    <div className="bg-accent/10 p-3 rounded-lg">
-                      <p className="text-xs text-muted-foreground">Avg (15 days)</p>
-                      <p className="font-bold">₹{forecast.stats.average}</p>
-                    </div>
-                    <div className="bg-green-50 p-3 rounded-lg">
-                      <p className="text-xs text-muted-foreground">Min Price</p>
-                      <p className="font-bold text-green-600">₹{forecast.stats.min}</p>
-                    </div>
-                    <div className="bg-red-50 p-3 rounded-lg">
-                      <p className="text-xs text-muted-foreground">Max Price</p>
-                      <p className="font-bold text-red-600">₹{forecast.stats.max}</p>
-                    </div>
+                <div className="flex items-end">
+                  <Button 
+                    variant="hero" 
+                    className="w-full" 
+                    onClick={fetchMarketData}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Loading..." : "Get Market Prices"}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Statistics */}
+          {stats && (
+            <Card className="bg-gradient-card border-0 shadow-card">
+              <CardHeader>
+                <CardTitle>Price Statistics</CardTitle>
+                <CardDescription>Based on {marketData.length} recent market records</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-primary/5 p-4 rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">Latest Price</p>
+                    <p className="text-2xl font-bold text-primary">₹{stats.latestPrice}</p>
                   </div>
-                  
-                  <div className={`p-3 rounded-lg ${forecast.stats.weekChange >= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
-                    <p className="text-xs text-muted-foreground">Week Change</p>
-                    <p className={`font-bold ${forecast.stats.weekChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {forecast.stats.weekChange >= 0 ? '+' : ''}{forecast.stats.weekChange}%
-                    </p>
+                  <div className="bg-accent/10 p-4 rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">Average Price</p>
+                    <p className="text-2xl font-bold">₹{stats.avgPrice}</p>
                   </div>
+                  <div className="bg-green-50 p-4 rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">Min Price</p>
+                    <p className="text-2xl font-bold text-green-600">₹{stats.minPrice}</p>
+                  </div>
+                  <div className="bg-red-50 p-4 rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">Max Price</p>
+                    <p className="text-2xl font-bold text-red-600">₹{stats.maxPrice}</p>
+                  </div>
+                </div>
+                <div className="mt-4 flex items-center space-x-2">
+                  {getTrendIcon(stats.trend)}
+                  <span className={`font-semibold ${getTrendColor(stats.trend)}`}>
+                    {stats.trend === 'up' ? 'Prices trending upward' : stats.trend === 'down' ? 'Prices trending downward' : 'Prices stable'}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Market Data Table */}
+          <Card className="bg-gradient-card border-0 shadow-card">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Calendar className="h-6 w-6 text-primary" />
+                <span>Market Price Records</span>
+              </CardTitle>
+              <CardDescription>
+                {marketData.length > 0 ? `Showing ${marketData.length} latest records` : "Select crop to view market data"}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {marketData.length === 0 ? (
+                <div className="text-center py-12">
+                  <BarChart3 className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">
+                    Select a crop and click "Get Market Prices" to view real market data
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>State</TableHead>
+                        <TableHead>District</TableHead>
+                        <TableHead>Market</TableHead>
+                        <TableHead>Commodity</TableHead>
+                        <TableHead>Variety</TableHead>
+                        <TableHead className="text-right">Min Price</TableHead>
+                        <TableHead className="text-right">Max Price</TableHead>
+                        <TableHead className="text-right">Modal Price</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {marketData.map((record, index) => (
+                        <TableRow key={index}>
+                          <TableCell className="font-medium">{record.Arrival_Date}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-1">
+                              <MapPin className="h-3 w-3 text-muted-foreground" />
+                              <span>{record.State}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>{record.District}</TableCell>
+                          <TableCell>{record.Market}</TableCell>
+                          <TableCell className="font-medium">{record.Commodity}</TableCell>
+                          <TableCell>{record.Variety}</TableCell>
+                          <TableCell className="text-right text-green-600">₹{record.Min_Price}</TableCell>
+                          <TableCell className="text-right text-red-600">₹{record.Max_Price}</TableCell>
+                          <TableCell className="text-right font-bold">₹{record.Modal_Price}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
               )}
             </CardContent>
           </Card>
-
-          {/* Forecast Results */}
-          <div className="lg:col-span-2">
-            <Card className="bg-gradient-card border-0 shadow-card">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Calendar className="h-6 w-6 text-primary" />
-                  <span>15-Day Price Forecast</span>
-                </CardTitle>
-                <CardDescription>
-                  {forecast ? `Price predictions for ${forecast.crop}` : "Select a crop to view forecast"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {!forecast ? (
-                  <div className="text-center py-12">
-                    <BarChart3 className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">
-                      Select a crop and click "Generate Forecast" to see price predictions
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    {/* Price Chart Simulation */}
-                    <div className="bg-background/50 p-4 rounded-lg">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                        {forecast.dates.slice(0, 15).map((date, index) => (
-                          <div key={index} className="flex items-center justify-between p-2 bg-white rounded border">
-                            <div className="flex items-center space-x-2">
-                              {getTrendIcon(forecast.trends[index])}
-                              <span className="text-sm font-medium">{date}</span>
-                            </div>
-                            <span className={`text-sm font-bold ${getTrendColor(forecast.trends[index])}`}>
-                              ₹{forecast.prices[index]}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Insights */}
-                    <div>
-                      <h4 className="font-semibold mb-3 text-primary">Market Insights</h4>
-                      <ul className="space-y-2">
-                        {forecast.insights.map((insight, index) => (
-                          <li key={index} className="flex items-start space-x-2">
-                            <span className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"></span>
-                            <span className="text-sm">{insight}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    {/* Recommendations */}
-                    <div className="bg-primary/5 p-4 rounded-lg">
-                      <h4 className="font-semibold mb-2 text-primary">Selling Recommendations</h4>
-                      <p className="text-sm">
-                        {forecast.stats.weekChange >= 0 
-                          ? "Consider holding for a week as prices are expected to rise. Monitor daily trends for optimal selling window."
-                          : "Current prices are relatively high. Consider selling soon as prices may decline in the coming days."
-                        }
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
         </div>
       </div>
     </div>
