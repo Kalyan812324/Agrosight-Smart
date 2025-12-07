@@ -2,3 +2,6 @@ project_id = "xllpedrhhzoljkfvkgef"
 
 [functions.ai-assistant]
 verify_jwt = false
+
+[functions.get-weather]
+verify_jwt = false
