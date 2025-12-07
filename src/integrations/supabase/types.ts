@@ -35,7 +35,7 @@ export type Database = {
           state: string
           temperature: number | null
           total_production: number
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           actual_yield?: number | null
@@ -57,7 +57,7 @@ export type Database = {
           state: string
           temperature?: number | null
           total_production: number
-          user_id?: string | null
+          user_id: string
         }
         Update: {
           actual_yield?: number | null
@@ -79,7 +79,7 @@ export type Database = {
           state?: string
           temperature?: number | null
           total_production?: number
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -122,6 +122,48 @@ export type Database = {
           state?: string
           temperature?: number | null
           year?: number
+        }
+        Relationships: []
+      }
+      market_prices: {
+        Row: {
+          ArrivalDate: string | null
+          Commodity: string | null
+          CommodityCode: number | null
+          District: string | null
+          Grade: string | null
+          Market: string | null
+          MaxPrice: number | null
+          MinPrice: number | null
+          ModalPrice: number | null
+          State: string | null
+          Variety: string | null
+        }
+        Insert: {
+          ArrivalDate?: string | null
+          Commodity?: string | null
+          CommodityCode?: number | null
+          District?: string | null
+          Grade?: string | null
+          Market?: string | null
+          MaxPrice?: number | null
+          MinPrice?: number | null
+          ModalPrice?: number | null
+          State?: string | null
+          Variety?: string | null
+        }
+        Update: {
+          ArrivalDate?: string | null
+          Commodity?: string | null
+          CommodityCode?: number | null
+          District?: string | null
+          Grade?: string | null
+          Market?: string | null
+          MaxPrice?: number | null
+          MinPrice?: number | null
+          ModalPrice?: number | null
+          State?: string | null
+          Variety?: string | null
         }
         Relationships: []
       }
