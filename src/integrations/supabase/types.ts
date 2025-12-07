@@ -125,6 +125,114 @@ export type Database = {
         }
         Relationships: []
       }
+      mandi_prices: {
+        Row: {
+          arrival_date: string
+          arrivals_deviation: number | null
+          arrivals_tonnes: number | null
+          commodity: string
+          created_at: string
+          district: string
+          grade: string | null
+          humidity: number | null
+          id: string
+          is_festival: boolean | null
+          is_harvest_season: boolean | null
+          is_sowing_season: boolean | null
+          market: string
+          max_price: number
+          min_price: number
+          modal_price: number
+          momentum_7: number | null
+          msp_gap: number | null
+          msp_price: number | null
+          policy_event: string | null
+          price_lag_1: number | null
+          price_lag_30: number | null
+          price_lag_7: number | null
+          rainfall_mm: number | null
+          rolling_mean_30: number | null
+          rolling_mean_7: number | null
+          rolling_std_7: number | null
+          state: string
+          temp_max: number | null
+          temp_min: number | null
+          updated_at: string
+          variety: string | null
+          volatility_30: number | null
+        }
+        Insert: {
+          arrival_date: string
+          arrivals_deviation?: number | null
+          arrivals_tonnes?: number | null
+          commodity: string
+          created_at?: string
+          district: string
+          grade?: string | null
+          humidity?: number | null
+          id?: string
+          is_festival?: boolean | null
+          is_harvest_season?: boolean | null
+          is_sowing_season?: boolean | null
+          market: string
+          max_price: number
+          min_price: number
+          modal_price: number
+          momentum_7?: number | null
+          msp_gap?: number | null
+          msp_price?: number | null
+          policy_event?: string | null
+          price_lag_1?: number | null
+          price_lag_30?: number | null
+          price_lag_7?: number | null
+          rainfall_mm?: number | null
+          rolling_mean_30?: number | null
+          rolling_mean_7?: number | null
+          rolling_std_7?: number | null
+          state: string
+          temp_max?: number | null
+          temp_min?: number | null
+          updated_at?: string
+          variety?: string | null
+          volatility_30?: number | null
+        }
+        Update: {
+          arrival_date?: string
+          arrivals_deviation?: number | null
+          arrivals_tonnes?: number | null
+          commodity?: string
+          created_at?: string
+          district?: string
+          grade?: string | null
+          humidity?: number | null
+          id?: string
+          is_festival?: boolean | null
+          is_harvest_season?: boolean | null
+          is_sowing_season?: boolean | null
+          market?: string
+          max_price?: number
+          min_price?: number
+          modal_price?: number
+          momentum_7?: number | null
+          msp_gap?: number | null
+          msp_price?: number | null
+          policy_event?: string | null
+          price_lag_1?: number | null
+          price_lag_30?: number | null
+          price_lag_7?: number | null
+          rainfall_mm?: number | null
+          rolling_mean_30?: number | null
+          rolling_mean_7?: number | null
+          rolling_std_7?: number | null
+          state?: string
+          temp_max?: number | null
+          temp_min?: number | null
+          updated_at?: string
+          variety?: string | null
+          volatility_30?: number | null
+        }
+        Relationships: []
+      }
       market_prices: {
         Row: {
           ArrivalDate: string | null
@@ -164,6 +272,84 @@ export type Database = {
           ModalPrice?: number | null
           State?: string | null
           Variety?: string | null
+        }
+        Relationships: []
+      }
+      price_forecasts: {
+        Row: {
+          absolute_error: number | null
+          actual_modal: number | null
+          commodity: string
+          confidence_level: number | null
+          confidence_lower: number | null
+          confidence_upper: number | null
+          created_at: string
+          district: string
+          feature_importance: Json | null
+          forecast_date: string
+          horizon_days: number
+          id: string
+          market: string
+          model_used: string
+          model_version: string | null
+          percentage_error: number | null
+          predicted_max: number
+          predicted_min: number
+          predicted_modal: number
+          state: string
+          target_date: string
+          top_drivers: Json | null
+          variety: string | null
+        }
+        Insert: {
+          absolute_error?: number | null
+          actual_modal?: number | null
+          commodity: string
+          confidence_level?: number | null
+          confidence_lower?: number | null
+          confidence_upper?: number | null
+          created_at?: string
+          district: string
+          feature_importance?: Json | null
+          forecast_date: string
+          horizon_days: number
+          id?: string
+          market: string
+          model_used: string
+          model_version?: string | null
+          percentage_error?: number | null
+          predicted_max: number
+          predicted_min: number
+          predicted_modal: number
+          state: string
+          target_date: string
+          top_drivers?: Json | null
+          variety?: string | null
+        }
+        Update: {
+          absolute_error?: number | null
+          actual_modal?: number | null
+          commodity?: string
+          confidence_level?: number | null
+          confidence_lower?: number | null
+          confidence_upper?: number | null
+          created_at?: string
+          district?: string
+          feature_importance?: Json | null
+          forecast_date?: string
+          horizon_days?: number
+          id?: string
+          market?: string
+          model_used?: string
+          model_version?: string | null
+          percentage_error?: number | null
+          predicted_max?: number
+          predicted_min?: number
+          predicted_modal?: number
+          state?: string
+          target_date?: string
+          top_drivers?: Json | null
+          variety?: string | null
         }
         Relationships: []
       }

@@ -1,5 +1,8 @@
 project_id = "xllpedrhhzoljkfvkgef"
 
+[functions.market-forecast]
+verify_jwt = false
+
 [functions.ai-assistant]
 verify_jwt = false
 
