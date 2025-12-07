@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -14,50 +14,87 @@ import {
   MapPin,
   RefreshCw,
   AlertTriangle,
-  Loader2
+  Loader2,
+  Thermometer,
+  Umbrella,
+  Leaf,
+  Bug,
+  Sprout,
+  Calendar,
+  TrendingUp,
+  Eye,
+  CloudSun,
+  Snowflake,
+  CloudLightning,
+  CloudFog,
+  Activity
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface WeatherData {
   location: {
     name: string;
-    lat: number;
-    lon: number;
+    district: string;
+    state: string;
+    country: string;
+    latitude: number;
+    longitude: number;
   };
   current: {
-    temp: number;
-    feels_like: number;
-    humidity: number;
-    pressure: number;
-    wind_speed: number;
-    clouds: number;
-    weather: {
-      description: string;
-      icon: string;
-    };
-    sunrise: number;
-    sunset: number;
+    temperature_2m: number;
+    relative_humidity_2m: number;
+    apparent_temperature: number;
+    precipitation: number;
+    rain: number;
+    weather_code: number;
+    cloud_cover: number;
+    pressure_msl: number;
+    wind_speed_10m: number;
+    wind_direction_10m: number;
+    wind_gusts_10m: number;
+    uv_index: number;
+    is_day: number;
   };
-  forecast: {
-    daily: Array<{
-      date: string;
-      temp_max: number;
-      temp_min: number;
-      weather: string;
-      rain_probability: number;
-    }>;
-    hourly: Array<{
-      time: string;
-      temp: number;
-      humidity: number;
-      rain_probability: number;
-    }>;
+  daily: {
+    time: string[];
+    weather_code: number[];
+    temperature_2m_max: number[];
+    temperature_2m_min: number[];
+    apparent_temperature_max: number[];
+    apparent_temperature_min: number[];
+    sunrise: string[];
+    sunset: string[];
+    daylight_duration: number[];
+    sunshine_duration: number[];
+    uv_index_max: number[];
+    precipitation_sum: number[];
+    rain_sum: number[];
+    precipitation_hours: number[];
+    precipitation_probability_max: number[];
+    wind_speed_10m_max: number[];
+    wind_gusts_10m_max: number[];
+    et0_fao_evapotranspiration: number[];
+  };
+  hourly: {
+    time: string[];
+    temperature_2m: number[];
+    relative_humidity_2m: number[];
+    precipitation_probability: number[];
+    precipitation: number[];
+    weather_code: number[];
+    wind_speed_10m: number[];
+    soil_temperature_0cm: number[];
+    soil_moisture_0_to_1cm: number[];
   };
   agricultural_insights: {
     irrigation: {
       priority: string;
       recommendation: string;
+      soil_moisture: number;
+      evapotranspiration: number;
     };
     crop_stress: {
       level: string;
@@ -71,17 +108,28 @@ interface WeatherData {
       level: string;
       details: string;
     };
+    spraying: {
+      conditions: string;
+      details: string;
+      wind_speed: number;
+      humidity: number;
+    };
+    harvesting: Array<{
+      date: string;
+      suitability: string;
+      precipitation: number;
+      precipitationProbability: number;
+    }>;
   };
   optimal_activities: string[];
-  warnings?: string[];
+  warnings: Array<{ type: string; message: string }>;
 }
 
 const Weather = () => {
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [manualInput, setManualInput] = useState(false);
-  const [lat, setLat] = useState("");
-  const [lon, setLon] = useState("");
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const { toast } = useToast();
 
   const getWeatherDescription = (code: number): string => {
@@ -91,40 +139,68 @@ const Weather = () => {
       2: "Partly cloudy",
       3: "Overcast",
       45: "Foggy",
-      48: "Depositing rime fog",
+      48: "Rime fog",
       51: "Light drizzle",
       53: "Moderate drizzle",
       55: "Dense drizzle",
       61: "Slight rain",
       63: "Moderate rain",
       65: "Heavy rain",
+      66: "Freezing rain",
+      67: "Heavy freezing rain",
       71: "Slight snow",
       73: "Moderate snow",
       75: "Heavy snow",
       77: "Snow grains",
-      80: "Slight rain showers",
-      81: "Moderate rain showers",
-      82: "Violent rain showers",
+      80: "Slight showers",
+      81: "Moderate showers",
+      82: "Violent showers",
       85: "Slight snow showers",
       86: "Heavy snow showers",
       95: "Thunderstorm",
-      96: "Thunderstorm with slight hail",
-      99: "Thunderstorm with heavy hail"
+      96: "Thunderstorm with hail",
+      99: "Severe thunderstorm"
     };
     return weatherCodes[code] || "Unknown";
   };
 
+  const getWeatherIcon = (code: number, isDay: boolean = true) => {
+    if (code === 0 || code === 1) return isDay ? <Sun className="h-8 w-8 text-yellow-500" /> : <Sun className="h-8 w-8 text-yellow-300" />;
+    if (code === 2) return <CloudSun className="h-8 w-8 text-yellow-400" />;
+    if (code === 3) return <Cloud className="h-8 w-8 text-gray-400" />;
+    if (code >= 45 && code <= 48) return <CloudFog className="h-8 w-8 text-gray-500" />;
+    if (code >= 51 && code <= 67) return <CloudRain className="h-8 w-8 text-blue-500" />;
+    if (code >= 71 && code <= 86) return <Snowflake className="h-8 w-8 text-blue-300" />;
+    if (code >= 95) return <CloudLightning className="h-8 w-8 text-purple-500" />;
+    return <Cloud className="h-8 w-8 text-gray-400" />;
+  };
+
+  const getLevelColor = (level: string) => {
+    switch (level.toLowerCase()) {
+      case "critical": return "bg-red-500";
+      case "high": return "bg-orange-500";
+      case "medium": return "bg-yellow-500";
+      case "low": return "bg-green-500";
+      case "none": return "bg-blue-500";
+      case "excellent": return "bg-green-500";
+      case "good": return "bg-emerald-500";
+      case "fair": return "bg-yellow-500";
+      case "poor": return "bg-red-500";
+      default: return "bg-gray-500";
+    }
+  };
+
   const fetchWeather = async (latitude: number, longitude: number) => {
     setLoading(true);
+    setLocationError(null);
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-weather`,
+        "https://xllpedrhhzoljkfvkgef.supabase.co/functions/v1/get-weather",
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhsbHBlZHJoaHpvbGprZnZrZ2VmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQxNDY2ODQsImV4cCI6MjA2OTcyMjY4NH0.y5uFWQdULq1GFDE4jb64iHtW0u8qZghm83YZlaYBqvk",
           },
           body: JSON.stringify({ latitude, longitude }),
         }
@@ -137,87 +213,14 @@ const Weather = () => {
 
       const data = await response.json();
       console.log("Weather API Response:", data);
+      setWeatherData(data);
       
-      // Map the API response to our expected format
-      const mappedData: WeatherData = {
-        location: {
-          name: data.location_name || `${latitude.toFixed(2)}°, ${longitude.toFixed(2)}°`,
-          lat: latitude,
-          lon: longitude,
-        },
-        current: {
-          temp: data.current?.temperature_2m || 0,
-          feels_like: data.current?.apparent_temperature || 0,
-          humidity: data.current?.relative_humidity_2m || 0,
-          pressure: data.current?.pressure_msl || 0,
-          wind_speed: (data.current?.wind_speed_10m || 0) / 3.6, // Convert km/h to m/s
-          clouds: data.current?.cloud_cover || 0,
-          weather: {
-            description: getWeatherDescription(data.current?.weather_code || 0),
-            icon: String(data.current?.weather_code || 0)
-          },
-          sunrise: new Date(data.daily?.sunrise?.[0] || Date.now()).getTime() / 1000,
-          sunset: new Date(data.daily?.sunset?.[0] || Date.now()).getTime() / 1000,
-        },
-        forecast: {
-          daily: (data.daily?.time || []).slice(0, 7).map((date: string, index: number) => ({
-            date,
-            temp_max: data.daily?.temperature_2m_max?.[index] || 0,
-            temp_min: data.daily?.temperature_2m_min?.[index] || 0,
-            weather: getWeatherDescription(data.daily?.weather_code?.[index] || 0),
-            rain_probability: data.daily?.precipitation_probability_max?.[index] || 0,
-          })),
-          hourly: (data.hourly?.time || []).slice(0, 24).map((time: string, index: number) => ({
-            time: new Date(time).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-            temp: data.hourly?.temperature_2m?.[index] || 0,
-            humidity: data.hourly?.relative_humidity_2m?.[index] || 0,
-            rain_probability: data.hourly?.precipitation_probability?.[index] || 0,
-          })),
-        },
-        agricultural_insights: {
-          irrigation: {
-            priority: data.current?.precipitation > 5 ? "Low" : "Medium",
-            recommendation: data.current?.precipitation > 5 
-              ? "Recent rainfall detected. Reduce irrigation." 
-              : "Monitor soil moisture levels regularly."
-          },
-          crop_stress: {
-            level: data.current?.temperature_2m > 35 ? "High" : "Low",
-            details: data.current?.temperature_2m > 35
-              ? "High temperatures may cause heat stress."
-              : "Temperature within optimal range."
-          },
-          pest_risk: {
-            level: data.current?.relative_humidity_2m > 80 ? "Medium" : "Low",
-            details: data.current?.relative_humidity_2m > 80
-              ? "High humidity increases pest activity."
-              : "Humidity levels are acceptable."
-          },
-          disease_risk: {
-            level: data.current?.relative_humidity_2m > 85 ? "High" : "Low",
-            details: data.current?.relative_humidity_2m > 85
-              ? "Very high humidity increases disease risk."
-              : "Disease risk is minimal."
-          },
-        },
-        optimal_activities: [
-          data.current?.precipitation === 0 ? "Field work" : null,
-          data.current?.wind_speed_10m < 20 ? "Spraying" : null,
-          data.current?.temperature_2m < 30 ? "Planting" : null,
-        ].filter((a): a is string => a !== null),
-        warnings: [
-          data.current?.temperature_2m > 40 ? "Extreme heat warning" : null,
-          data.current?.wind_speed_10m > 50 ? "High wind warning" : null,
-          data.current?.precipitation > 50 ? "Heavy rainfall warning" : null,
-        ].filter((w): w is string => w !== null),
-      };
-      
-      setWeatherData(mappedData);
       toast({
-        title: "Weather data updated",
-        description: "Successfully fetched latest weather information",
+        title: "Weather Updated",
+        description: `Showing 10-day forecast for ${data.location?.name || "your location"}`,
       });
     } catch (error) {
+      console.error("Weather fetch error:", error);
       toast({
         title: "Error",
         description: "Failed to fetch weather data. Please try again.",
@@ -225,341 +228,502 @@ const Weather = () => {
       });
     } finally {
       setLoading(false);
+      setInitialLoading(false);
     }
   };
 
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
-      toast({
-        title: "Location not supported",
-        description: "Please enter coordinates manually",
-        variant: "destructive",
-      });
-      setManualInput(true);
+      setLocationError("Geolocation is not supported by your browser");
+      setInitialLoading(false);
       return;
     }
 
+    setLoading(true);
     navigator.geolocation.getCurrentPosition(
       (position) => {
         fetchWeather(position.coords.latitude, position.coords.longitude);
       },
       (error) => {
+        console.error("Geolocation error:", error);
+        let errorMessage = "Unable to get your location. ";
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage += "Please allow location access in your browser settings.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage += "Location information unavailable.";
+            break;
+          case error.TIMEOUT:
+            errorMessage += "Location request timed out.";
+            break;
+        }
+        setLocationError(errorMessage);
+        setInitialLoading(false);
+        setLoading(false);
         toast({
-          title: "Location permission denied",
-          description: "Please enter coordinates manually",
+          title: "Location Error",
+          description: errorMessage,
           variant: "destructive",
         });
-        setManualInput(true);
-      }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
     );
   };
 
-  const handleManualSubmit = () => {
-    const latitude = parseFloat(lat);
-    const longitude = parseFloat(lon);
-    
-    if (isNaN(latitude) || isNaN(longitude)) {
-      toast({
-        title: "Invalid coordinates",
-        description: "Please enter valid latitude and longitude",
-        variant: "destructive",
-      });
-      return;
-    }
+  useEffect(() => {
+    getCurrentLocation();
+  }, []);
 
-    fetchWeather(latitude, longitude);
-  };
-
-  const formatTime = (timestamp: number) => {
-    return new Date(timestamp * 1000).toLocaleTimeString("en-US", {
+  const formatTime = (isoString: string) => {
+    return new Date(isoString).toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
     });
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("en-US", {
+    const date = new Date(dateStr);
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    if (date.toDateString() === today.toDateString()) return "Today";
+    if (date.toDateString() === tomorrow.toDateString()) return "Tomorrow";
+    
+    return date.toLocaleDateString("en-US", {
       weekday: "short",
       month: "short",
       day: "numeric",
     });
   };
 
+  const formatDayName = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString("en-US", { weekday: "long" });
+  };
+
+  if (initialLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="relative">
+            <Cloud className="h-20 w-20 text-primary animate-pulse mx-auto" />
+            <Sun className="h-10 w-10 text-yellow-500 absolute -top-2 -right-2 animate-spin" style={{ animationDuration: '3s' }} />
+          </div>
+          <h2 className="text-2xl font-bold text-foreground">Detecting Your Location...</h2>
+          <p className="text-muted-foreground">Getting precise weather data for your farm</p>
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+        </div>
+      </div>
+    );
+  }
+
+  if (locationError && !weatherData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex items-center justify-center p-4">
+        <Card className="max-w-md w-full p-8 text-center space-y-6">
+          <MapPin className="h-16 w-16 text-muted-foreground mx-auto" />
+          <h2 className="text-2xl font-bold text-foreground">Location Access Required</h2>
+          <p className="text-muted-foreground">{locationError}</p>
+          <Button onClick={getCurrentLocation} size="lg" className="w-full">
+            <MapPin className="mr-2 h-5 w-5" />
+            Try Again
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="text-center mb-8 animate-fade-in">
-          <h1 className="text-4xl sm:text-5xl font-bold text-foreground mb-4">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full mb-4">
+            <Activity className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium text-primary">Ultra Precision Mode</span>
+          </div>
+          <h1 className="text-4xl sm:text-5xl font-bold text-foreground mb-2">
             Smart Weather Forecast
           </h1>
-          <p className="text-lg text-muted-foreground mb-8">
-            Real-time weather predictions for better farming decisions
+          <p className="text-lg text-muted-foreground">
+            10-Day Agricultural Weather Intelligence
           </p>
-          
-          {!weatherData && (
-            <Button
-              onClick={getCurrentLocation}
-              disabled={loading}
-              variant="hero"
-              size="lg"
-              className="mb-4"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Loading Weather...
-                </>
-              ) : (
-                <>
-                  <Cloud className="mr-2 h-5 w-5" />
-                  Get Current Weather
-                </>
-              )}
-            </Button>
-          )}
-
-          {manualInput && !weatherData && (
-            <Card className="max-w-md mx-auto p-6 mt-4">
-              <h3 className="text-lg font-semibold mb-4">Enter Location Manually</h3>
-              <div className="space-y-4">
-                <input
-                  type="number"
-                  step="any"
-                  placeholder="Latitude"
-                  value={lat}
-                  onChange={(e) => setLat(e.target.value)}
-                  className="w-full px-4 py-2 rounded-md border border-border bg-background"
-                />
-                <input
-                  type="number"
-                  step="any"
-                  placeholder="Longitude"
-                  value={lon}
-                  onChange={(e) => setLon(e.target.value)}
-                  className="w-full px-4 py-2 rounded-md border border-border bg-background"
-                />
-                <Button onClick={handleManualSubmit} className="w-full" variant="hero">
-                  Get Weather
-                </Button>
-              </div>
-            </Card>
-          )}
         </div>
 
         {weatherData && (
-          <div className="space-y-8 animate-fade-in">
-            {/* Refresh Button */}
-            <div className="flex justify-end">
+          <div className="space-y-6 animate-fade-in">
+            {/* Location & Refresh */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-primary/10 rounded-full">
+                  <MapPin className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-foreground">{weatherData.location.name}</h2>
+                  <p className="text-sm text-muted-foreground">
+                    {weatherData.location.latitude.toFixed(4)}°N, {weatherData.location.longitude.toFixed(4)}°E
+                  </p>
+                </div>
+              </div>
               <Button
-                onClick={() => fetchWeather(weatherData.location.lat, weatherData.location.lon)}
+                onClick={getCurrentLocation}
                 disabled={loading}
                 variant="outline"
+                className="gap-2"
               >
-                <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                Refresh Weather
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
               </Button>
             </div>
 
-            {/* Current Weather Card */}
-            <Card className="p-6 bg-gradient-primary text-primary-foreground">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <MapPin className="h-5 w-5" />
-                    <h2 className="text-2xl font-bold">{weatherData.location.name}</h2>
-                  </div>
-                  <p className="text-sm opacity-90">
-                    {weatherData.location.lat.toFixed(2)}°, {weatherData.location.lon.toFixed(2)}°
-                  </p>
-                </div>
-                <Sun className="h-12 w-12" />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <div className="text-6xl font-bold mb-2">
-                    {Math.round(weatherData.current.temp)}°C
-                  </div>
-                  <p className="text-lg opacity-90">
-                    Feels like {Math.round(weatherData.current.feels_like)}°C
-                  </p>
-                  <p className="text-xl mt-2 capitalize">
-                    {weatherData.current.weather.description}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex items-center gap-2">
-                    <Droplets className="h-5 w-5" />
-                    <div>
-                      <p className="text-sm opacity-80">Humidity</p>
-                      <p className="font-semibold">{weatherData.current.humidity}%</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Wind className="h-5 w-5" />
-                    <div>
-                      <p className="text-sm opacity-80">Wind</p>
-                      <p className="font-semibold">{weatherData.current.wind_speed} m/s</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Gauge className="h-5 w-5" />
-                    <div>
-                      <p className="text-sm opacity-80">Pressure</p>
-                      <p className="font-semibold">{weatherData.current.pressure} hPa</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Cloud className="h-5 w-5" />
-                    <div>
-                      <p className="text-sm opacity-80">Clouds</p>
-                      <p className="font-semibold">{weatherData.current.clouds}%</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-6 mt-6 pt-6 border-t border-primary-foreground/20">
-                <div className="flex items-center gap-2">
-                  <Sunrise className="h-5 w-5" />
-                  <div>
-                    <p className="text-sm opacity-80">Sunrise</p>
-                    <p className="font-semibold">{formatTime(weatherData.current.sunrise)}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Sunset className="h-5 w-5" />
-                  <div>
-                    <p className="text-sm opacity-80">Sunset</p>
-                    <p className="font-semibold">{formatTime(weatherData.current.sunset)}</p>
-                  </div>
-                </div>
-              </div>
-            </Card>
-
-            {/* Weather Warnings */}
+            {/* Warnings */}
             {weatherData.warnings && weatherData.warnings.length > 0 && (
               <div className="space-y-2">
                 {weatherData.warnings.map((warning, index) => (
-                  <Alert key={index} variant="destructive">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertDescription>{warning}</AlertDescription>
+                  <Alert key={index} variant="destructive" className="border-red-500/50 bg-red-500/10">
+                    <AlertTriangle className="h-5 w-5" />
+                    <AlertTitle className="font-semibold">Weather Alert</AlertTitle>
+                    <AlertDescription>{warning.message}</AlertDescription>
                   </Alert>
                 ))}
               </div>
             )}
 
-            {/* Agricultural Insights */}
-            <div>
-              <h2 className="text-2xl font-bold mb-4">Agricultural Insights</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="p-4 bg-blue-500/10 border-blue-500/20">
-                  <h3 className="font-semibold text-blue-600 dark:text-blue-400 mb-2">Irrigation Status</h3>
-                  <p className="text-sm font-medium mb-1">
-                    Priority: {weatherData.agricultural_insights.irrigation.priority}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {weatherData.agricultural_insights.irrigation.recommendation}
-                  </p>
-                </Card>
+            {/* Current Weather Hero */}
+            <Card className="overflow-hidden">
+              <div className="bg-gradient-to-br from-primary via-primary/90 to-primary/70 p-6 sm:p-8 text-primary-foreground">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* Main Temperature */}
+                  <div className="lg:col-span-1 flex flex-col items-center lg:items-start">
+                    <div className="flex items-center gap-4 mb-4">
+                      {getWeatherIcon(weatherData.current.weather_code, weatherData.current.is_day === 1)}
+                      <div>
+                        <div className="text-7xl font-bold tracking-tight">
+                          {Math.round(weatherData.current.temperature_2m)}°
+                        </div>
+                        <p className="text-lg opacity-90">
+                          Feels like {Math.round(weatherData.current.apparent_temperature)}°C
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-xl capitalize mb-2">
+                      {getWeatherDescription(weatherData.current.weather_code)}
+                    </p>
+                    <div className="flex gap-4 text-sm opacity-80">
+                      <span>H: {Math.round(weatherData.daily.temperature_2m_max[0])}°</span>
+                      <span>L: {Math.round(weatherData.daily.temperature_2m_min[0])}°</span>
+                    </div>
+                  </div>
 
-                <Card className="p-4 bg-orange-500/10 border-orange-500/20">
-                  <h3 className="font-semibold text-orange-600 dark:text-orange-400 mb-2">Crop Stress</h3>
-                  <p className="text-sm font-medium mb-1">
-                    Level: {weatherData.agricultural_insights.crop_stress.level}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {weatherData.agricultural_insights.crop_stress.details}
-                  </p>
-                </Card>
-
-                <Card className="p-4 bg-red-500/10 border-red-500/20">
-                  <h3 className="font-semibold text-red-600 dark:text-red-400 mb-2">Pest Risk</h3>
-                  <p className="text-sm font-medium mb-1">
-                    Level: {weatherData.agricultural_insights.pest_risk.level}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {weatherData.agricultural_insights.pest_risk.details}
-                  </p>
-                </Card>
-
-                <Card className="p-4 bg-purple-500/10 border-purple-500/20">
-                  <h3 className="font-semibold text-purple-600 dark:text-purple-400 mb-2">Disease Risk</h3>
-                  <p className="text-sm font-medium mb-1">
-                    Level: {weatherData.agricultural_insights.disease_risk.level}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {weatherData.agricultural_insights.disease_risk.details}
-                  </p>
-                </Card>
-              </div>
-            </div>
-
-            {/* Optimal Activities */}
-            {weatherData.optimal_activities && weatherData.optimal_activities.length > 0 && (
-              <div>
-                <h2 className="text-2xl font-bold mb-4">Optimal Activities Today</h2>
-                <div className="flex flex-wrap gap-2">
-                  {weatherData.optimal_activities.map((activity, index) => (
-                    <Badge key={index} variant="secondary" className="bg-accent text-accent-foreground">
-                      {activity}
-                    </Badge>
-                  ))}
+                  {/* Weather Details Grid */}
+                  <div className="lg:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="bg-white/10 backdrop-blur rounded-xl p-4">
+                      <Droplets className="h-5 w-5 mb-2 opacity-80" />
+                      <p className="text-sm opacity-80">Humidity</p>
+                      <p className="text-2xl font-bold">{weatherData.current.relative_humidity_2m}%</p>
+                    </div>
+                    <div className="bg-white/10 backdrop-blur rounded-xl p-4">
+                      <Wind className="h-5 w-5 mb-2 opacity-80" />
+                      <p className="text-sm opacity-80">Wind</p>
+                      <p className="text-2xl font-bold">{Math.round(weatherData.current.wind_speed_10m)} km/h</p>
+                    </div>
+                    <div className="bg-white/10 backdrop-blur rounded-xl p-4">
+                      <Gauge className="h-5 w-5 mb-2 opacity-80" />
+                      <p className="text-sm opacity-80">Pressure</p>
+                      <p className="text-2xl font-bold">{Math.round(weatherData.current.pressure_msl)} hPa</p>
+                    </div>
+                    <div className="bg-white/10 backdrop-blur rounded-xl p-4">
+                      <Sun className="h-5 w-5 mb-2 opacity-80" />
+                      <p className="text-sm opacity-80">UV Index</p>
+                      <p className="text-2xl font-bold">{weatherData.current.uv_index}</p>
+                    </div>
+                    <div className="bg-white/10 backdrop-blur rounded-xl p-4">
+                      <Cloud className="h-5 w-5 mb-2 opacity-80" />
+                      <p className="text-sm opacity-80">Cloud Cover</p>
+                      <p className="text-2xl font-bold">{weatherData.current.cloud_cover}%</p>
+                    </div>
+                    <div className="bg-white/10 backdrop-blur rounded-xl p-4">
+                      <CloudRain className="h-5 w-5 mb-2 opacity-80" />
+                      <p className="text-sm opacity-80">Precipitation</p>
+                      <p className="text-2xl font-bold">{weatherData.current.precipitation} mm</p>
+                    </div>
+                    <div className="bg-white/10 backdrop-blur rounded-xl p-4">
+                      <Sunrise className="h-5 w-5 mb-2 opacity-80" />
+                      <p className="text-sm opacity-80">Sunrise</p>
+                      <p className="text-xl font-bold">{formatTime(weatherData.daily.sunrise[0])}</p>
+                    </div>
+                    <div className="bg-white/10 backdrop-blur rounded-xl p-4">
+                      <Sunset className="h-5 w-5 mb-2 opacity-80" />
+                      <p className="text-sm opacity-80">Sunset</p>
+                      <p className="text-xl font-bold">{formatTime(weatherData.daily.sunset[0])}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
-            )}
+            </Card>
 
-            {/* 7-Day Forecast */}
-            <div>
-              <h2 className="text-2xl font-bold mb-4">7-Day Forecast</h2>
-              <div className="flex gap-4 overflow-x-auto pb-4">
-                {weatherData.forecast.daily.map((day, index) => (
-                  <Card key={index} className="min-w-[150px] p-4 text-center">
-                    <p className="font-semibold mb-2">{formatDate(day.date)}</p>
-                    <CloudRain className="h-8 w-8 mx-auto mb-2 text-primary" />
-                    <p className="text-sm text-muted-foreground mb-2 capitalize">{day.weather}</p>
-                    <div className="flex justify-center gap-2 text-sm">
-                      <span className="font-semibold">{Math.round(day.temp_max)}°</span>
-                      <span className="text-muted-foreground">{Math.round(day.temp_min)}°</span>
+            {/* Tabs for Different Views */}
+            <Tabs defaultValue="insights" className="w-full">
+              <TabsList className="grid w-full grid-cols-3 mb-6">
+                <TabsTrigger value="insights" className="gap-2">
+                  <Leaf className="h-4 w-4" />
+                  Farm Insights
+                </TabsTrigger>
+                <TabsTrigger value="forecast" className="gap-2">
+                  <Calendar className="h-4 w-4" />
+                  10-Day Forecast
+                </TabsTrigger>
+                <TabsTrigger value="hourly" className="gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  Hourly
+                </TabsTrigger>
+              </TabsList>
+
+              {/* Agricultural Insights Tab */}
+              <TabsContent value="insights" className="space-y-6">
+                {/* Optimal Activities */}
+                {weatherData.optimal_activities && weatherData.optimal_activities.length > 0 && (
+                  <Card className="p-6">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <Activity className="h-5 w-5 text-primary" />
+                      Recommended Activities Today
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {weatherData.optimal_activities.map((activity, index) => (
+                        <Badge key={index} variant="secondary" className="text-sm py-2 px-4">
+                          {activity}
+                        </Badge>
+                      ))}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Rain: {day.rain_probability}%
+                  </Card>
+                )}
+
+                {/* Insights Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Irrigation */}
+                  <Card className="p-6 border-l-4" style={{ borderLeftColor: weatherData.agricultural_insights.irrigation.priority === "Critical" ? "#ef4444" : weatherData.agricultural_insights.irrigation.priority === "High" ? "#f97316" : weatherData.agricultural_insights.irrigation.priority === "Medium" ? "#eab308" : "#22c55e" }}>
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-500/10 rounded-lg">
+                          <Droplets className="h-6 w-6 text-blue-500" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold">Irrigation Status</h3>
+                          <Badge className={`${getLevelColor(weatherData.agricultural_insights.irrigation.priority)} text-white mt-1`}>
+                            {weatherData.agricultural_insights.irrigation.priority} Priority
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {weatherData.agricultural_insights.irrigation.recommendation}
+                    </p>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Soil Moisture</span>
+                        <span className="font-medium">{(weatherData.agricultural_insights.irrigation.soil_moisture * 100).toFixed(0)}%</span>
+                      </div>
+                      <Progress value={weatherData.agricultural_insights.irrigation.soil_moisture * 100} className="h-2" />
+                      <p className="text-xs text-muted-foreground">
+                        ET Loss: {weatherData.agricultural_insights.irrigation.evapotranspiration.toFixed(1)} mm/day
+                      </p>
+                    </div>
+                  </Card>
+
+                  {/* Crop Stress */}
+                  <Card className="p-6 border-l-4" style={{ borderLeftColor: weatherData.agricultural_insights.crop_stress.level === "Critical" ? "#ef4444" : weatherData.agricultural_insights.crop_stress.level === "High" ? "#f97316" : weatherData.agricultural_insights.crop_stress.level === "Medium" ? "#eab308" : "#22c55e" }}>
+                    <div className="flex items-start gap-3 mb-4">
+                      <div className="p-2 bg-orange-500/10 rounded-lg">
+                        <Thermometer className="h-6 w-6 text-orange-500" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold">Crop Stress Level</h3>
+                        <Badge className={`${getLevelColor(weatherData.agricultural_insights.crop_stress.level)} text-white mt-1`}>
+                          {weatherData.agricultural_insights.crop_stress.level}
+                        </Badge>
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {weatherData.agricultural_insights.crop_stress.details}
                     </p>
                   </Card>
-                ))}
-              </div>
-            </div>
 
-            {/* Hourly Forecast */}
-            <div>
-              <h2 className="text-2xl font-bold mb-4">Hourly Forecast (Next 24 Hours)</h2>
-              <Card className="overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-muted">
-                      <tr>
-                        <th className="px-4 py-3 text-left">Time</th>
-                        <th className="px-4 py-3 text-left">Temperature</th>
-                        <th className="px-4 py-3 text-left">Humidity</th>
-                        <th className="px-4 py-3 text-left">Rain</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {weatherData.forecast.hourly.map((hour, index) => (
-                        <tr key={index} className="border-t border-border">
-                          <td className="px-4 py-3">{hour.time}</td>
-                          <td className="px-4 py-3">{Math.round(hour.temp)}°C</td>
-                          <td className="px-4 py-3">{hour.humidity}%</td>
-                          <td className="px-4 py-3">{hour.rain_probability}%</td>
-                        </tr>
+                  {/* Pest Risk */}
+                  <Card className="p-6 border-l-4" style={{ borderLeftColor: weatherData.agricultural_insights.pest_risk.level === "High" ? "#ef4444" : weatherData.agricultural_insights.pest_risk.level === "Medium" ? "#eab308" : "#22c55e" }}>
+                    <div className="flex items-start gap-3 mb-4">
+                      <div className="p-2 bg-red-500/10 rounded-lg">
+                        <Bug className="h-6 w-6 text-red-500" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold">Pest Risk</h3>
+                        <Badge className={`${getLevelColor(weatherData.agricultural_insights.pest_risk.level)} text-white mt-1`}>
+                          {weatherData.agricultural_insights.pest_risk.level}
+                        </Badge>
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {weatherData.agricultural_insights.pest_risk.details}
+                    </p>
+                  </Card>
+
+                  {/* Disease Risk */}
+                  <Card className="p-6 border-l-4" style={{ borderLeftColor: weatherData.agricultural_insights.disease_risk.level === "Critical" ? "#ef4444" : weatherData.agricultural_insights.disease_risk.level === "High" ? "#f97316" : weatherData.agricultural_insights.disease_risk.level === "Medium" ? "#eab308" : "#22c55e" }}>
+                    <div className="flex items-start gap-3 mb-4">
+                      <div className="p-2 bg-purple-500/10 rounded-lg">
+                        <Leaf className="h-6 w-6 text-purple-500" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold">Disease Risk</h3>
+                        <Badge className={`${getLevelColor(weatherData.agricultural_insights.disease_risk.level)} text-white mt-1`}>
+                          {weatherData.agricultural_insights.disease_risk.level}
+                        </Badge>
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {weatherData.agricultural_insights.disease_risk.details}
+                    </p>
+                  </Card>
+
+                  {/* Spraying Conditions */}
+                  <Card className="p-6 border-l-4" style={{ borderLeftColor: weatherData.agricultural_insights.spraying.conditions === "Excellent" ? "#22c55e" : weatherData.agricultural_insights.spraying.conditions === "Good" ? "#10b981" : weatherData.agricultural_insights.spraying.conditions === "Fair" ? "#eab308" : "#ef4444" }}>
+                    <div className="flex items-start gap-3 mb-4">
+                      <div className="p-2 bg-green-500/10 rounded-lg">
+                        <Sprout className="h-6 w-6 text-green-500" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold">Spraying Conditions</h3>
+                        <Badge className={`${getLevelColor(weatherData.agricultural_insights.spraying.conditions)} text-white mt-1`}>
+                          {weatherData.agricultural_insights.spraying.conditions}
+                        </Badge>
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      {weatherData.agricultural_insights.spraying.details}
+                    </p>
+                    <div className="flex gap-4 text-xs text-muted-foreground">
+                      <span>Wind: {weatherData.agricultural_insights.spraying.wind_speed.toFixed(1)} km/h</span>
+                      <span>Humidity: {weatherData.agricultural_insights.spraying.humidity}%</span>
+                    </div>
+                  </Card>
+
+                  {/* Harvesting Outlook */}
+                  <Card className="p-6">
+                    <div className="flex items-start gap-3 mb-4">
+                      <div className="p-2 bg-amber-500/10 rounded-lg">
+                        <Calendar className="h-6 w-6 text-amber-500" />
+                      </div>
+                      <h3 className="font-semibold">Harvest Outlook (3 Days)</h3>
+                    </div>
+                    <div className="space-y-3">
+                      {weatherData.agricultural_insights.harvesting.map((day, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                          <span className="font-medium">{formatDate(day.date)}</span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm text-muted-foreground">
+                              <Umbrella className="h-3 w-3 inline mr-1" />
+                              {day.precipitationProbability}%
+                            </span>
+                            <Badge className={`${getLevelColor(day.suitability)} text-white`}>
+                              {day.suitability}
+                            </Badge>
+                          </div>
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
+                    </div>
+                  </Card>
                 </div>
-              </Card>
-            </div>
+              </TabsContent>
+
+              {/* 10-Day Forecast Tab */}
+              <TabsContent value="forecast">
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
+                    <Calendar className="h-5 w-5 text-primary" />
+                    10-Day Weather Forecast
+                  </h3>
+                  <div className="space-y-3">
+                    {weatherData.daily.time.map((date, index) => (
+                      <div 
+                        key={index} 
+                        className={`flex items-center justify-between p-4 rounded-xl transition-colors ${index === 0 ? 'bg-primary/10 border border-primary/20' : 'bg-muted/30 hover:bg-muted/50'}`}
+                      >
+                        <div className="flex items-center gap-4 min-w-[140px]">
+                          {getWeatherIcon(weatherData.daily.weather_code[index])}
+                          <div>
+                            <p className="font-semibold">{formatDate(date)}</p>
+                            <p className="text-xs text-muted-foreground">{formatDayName(date)}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="hidden sm:block text-sm text-muted-foreground max-w-[150px]">
+                          {getWeatherDescription(weatherData.daily.weather_code[index])}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Umbrella className="h-4 w-4 text-blue-500" />
+                          <span className="text-sm">{weatherData.daily.precipitation_probability_max[index]}%</span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <CloudRain className="h-4 w-4 text-blue-400" />
+                          <span className="text-sm">{weatherData.daily.precipitation_sum[index].toFixed(1)} mm</span>
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                          <span className="text-lg font-bold text-orange-500">
+                            {Math.round(weatherData.daily.temperature_2m_max[index])}°
+                          </span>
+                          <span className="text-lg text-blue-500">
+                            {Math.round(weatherData.daily.temperature_2m_min[index])}°
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              </TabsContent>
+
+              {/* Hourly Forecast Tab */}
+              <TabsContent value="hourly">
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-primary" />
+                    24-Hour Forecast
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <div className="flex gap-3 pb-4" style={{ minWidth: 'max-content' }}>
+                      {weatherData.hourly.time.slice(0, 24).map((time, index) => {
+                        const hour = new Date(time).getHours();
+                        const isNow = index === 0;
+                        return (
+                          <div 
+                            key={index}
+                            className={`flex flex-col items-center p-4 rounded-xl min-w-[80px] ${isNow ? 'bg-primary/10 border border-primary/20' : 'bg-muted/30'}`}
+                          >
+                            <span className="text-sm font-medium mb-2">
+                              {isNow ? 'Now' : `${hour}:00`}
+                            </span>
+                            {getWeatherIcon(weatherData.hourly.weather_code[index], hour >= 6 && hour < 18)}
+                            <span className="text-lg font-bold mt-2">
+                              {Math.round(weatherData.hourly.temperature_2m[index])}°
+                            </span>
+                            <div className="flex items-center gap-1 mt-2 text-xs text-blue-500">
+                              <Umbrella className="h-3 w-3" />
+                              {weatherData.hourly.precipitation_probability[index]}%
+                            </div>
+                            <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                              <Droplets className="h-3 w-3" />
+                              {weatherData.hourly.relative_humidity_2m[index]}%
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </div>
         )}
       </div>
