@@ -167,6 +167,43 @@ serve(async (req) => {
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
+  // Verify authentication - this function requires admin role
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) {
+    return new Response(
+      JSON.stringify({ error: 'Missing authorization header' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser(
+    authHeader.replace('Bearer ', '')
+  );
+
+  if (authError || !user) {
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // Check if user has admin role
+  const { data: roleData } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', user.id)
+    .eq('role', 'admin')
+    .maybeSingle();
+
+  if (!roleData) {
+    return new Response(
+      JSON.stringify({ error: 'Admin access required' }),
+      { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
   const apiKey = Deno.env.get('DATA_GOV_IN_API_KEY');
 
   if (!apiKey) {
@@ -176,8 +213,6 @@ serve(async (req) => {
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-
-  const supabase = createClient(supabaseUrl, supabaseKey);
   const syncStartTime = new Date();
   let syncLogId: string | null = null;
 

@@ -13,13 +13,13 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.sync-agmarknet]
-verify_jwt = false
+verify_jwt = true
 
 [functions.etl-pipeline]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ml-forecast]
 verify_jwt = false
 
 [functions.ml-monitor]
-verify_jwt = false
+verify_jwt = true
