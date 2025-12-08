@@ -13,6 +13,8 @@ import {
   BarChart3, Target, Zap, Shield, Loader2, Info
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { yieldPredictorSchema } from "@/lib/validations";
+import { z } from "zod";
 
 interface PredictionResult {
   prediction: {
@@ -175,18 +177,35 @@ const YieldPredictor = () => {
   };
 
   const predictYield = async () => {
-    const requiredFields = ["crop", "state", "soilType", "rainfall", "area", "season"];
-    const missingFields = requiredFields.filter(field => !formData[field as keyof typeof formData]);
+    // Validate form data with Zod schema
+    const validationData = {
+      crop: formData.crop,
+      state: formData.state,
+      district: formData.district || undefined,
+      soilType: formData.soilType,
+      rainfall: formData.rainfall ? parseFloat(formData.rainfall) : undefined,
+      area: formData.area ? parseFloat(formData.area) : undefined,
+      season: formData.season,
+      temperature: formData.temperature ? parseFloat(formData.temperature) : undefined,
+      humidity: formData.humidity ? parseFloat(formData.humidity) : undefined,
+      irrigationType: formData.irrigationType || undefined,
+      fertilizerUsage: formData.fertilizerUsage || undefined,
+      previousCrop: formData.previousCrop || undefined
+    };
+
+    const validationResult = yieldPredictorSchema.safeParse(validationData);
     
-    if (missingFields.length > 0) {
+    if (!validationResult.success) {
+      const firstError = validationResult.error.errors[0];
       toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields",
+        title: "Validation Error",
+        description: firstError.message,
         variant: "destructive"
       });
       return;
     }
 
+    const validatedData = validationResult.data;
     setIsLoading(true);
     
     try {
@@ -196,18 +215,18 @@ const YieldPredictor = () => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            crop: formData.crop,
-            state: formData.state,
-            district: formData.district || undefined,
-            soilType: formData.soilType,
-            rainfall: parseFloat(formData.rainfall),
-            area: parseFloat(formData.area),
-            season: formData.season,
-            temperature: formData.temperature ? parseFloat(formData.temperature) : undefined,
-            humidity: formData.humidity ? parseFloat(formData.humidity) : undefined,
-            irrigationType: formData.irrigationType || undefined,
-            fertilizerUsage: formData.fertilizerUsage || undefined,
-            previousCrop: formData.previousCrop || undefined
+            crop: validatedData.crop,
+            state: validatedData.state,
+            district: validatedData.district,
+            soilType: validatedData.soilType,
+            rainfall: validatedData.rainfall,
+            area: validatedData.area,
+            season: validatedData.season,
+            temperature: validatedData.temperature,
+            humidity: validatedData.humidity,
+            irrigationType: validatedData.irrigationType,
+            fertilizerUsage: validatedData.fertilizerUsage,
+            previousCrop: validatedData.previousCrop
           }),
         }
       );
