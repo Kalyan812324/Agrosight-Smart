@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_sync_logs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          metadata: Json | null
+          records_fetched: number | null
+          records_inserted: number | null
+          records_updated: number | null
+          sync_end_time: string | null
+          sync_start_time: string
+          sync_status: string
+          sync_type: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          records_fetched?: number | null
+          records_inserted?: number | null
+          records_updated?: number | null
+          sync_end_time?: string | null
+          sync_start_time?: string
+          sync_status: string
+          sync_type: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          records_fetched?: number | null
+          records_inserted?: number | null
+          records_updated?: number | null
+          sync_end_time?: string | null
+          sync_start_time?: string
+          sync_status?: string
+          sync_type?: string
+        }
+        Relationships: []
+      }
       crop_predictions: {
         Row: {
           actual_yield: number | null
