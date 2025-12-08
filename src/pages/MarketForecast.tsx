@@ -21,6 +21,13 @@ interface Forecast {
   confidence_upper: number;
 }
 
+interface ModelPrediction {
+  arima_prediction?: number;
+  xgboost_prediction?: number;
+  lstm_prediction?: number;
+  ensemble_prediction: number;
+}
+
 interface ForecastResult {
   success: boolean;
   source: string;
@@ -48,6 +55,8 @@ interface ForecastResult {
     momentum_7d: number;
     volatility_7d: number;
   };
+  model_weights?: Record<string, number>;
+  model_predictions?: ModelPrediction;
 }
 
 const MarketForecast = () => {
@@ -59,7 +68,7 @@ const MarketForecast = () => {
   const [selectedHorizon, setSelectedHorizon] = useState("7");
   const [forecast, setForecast] = useState<ForecastResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [mlApiUrl, setMlApiUrl] = useState("");
+  const [mlApiUrl, setMlApiUrl] = useState(import.meta.env.VITE_ML_API_URL || "");
 
   const states = [
     "Andhra Pradesh", "Karnataka", "Maharashtra", "Tamil Nadu", 
@@ -511,6 +520,58 @@ const MarketForecast = () => {
                         </div>
                       </div>
 
+                      {/* Model Weights (from external ML API) */}
+                      {forecast.model_weights && Object.keys(forecast.model_weights).length > 0 && (
+                        <div className="p-4 border rounded-lg">
+                          <h4 className="font-semibold mb-3">Ensemble Model Weights</h4>
+                          <div className="space-y-2">
+                            {Object.entries(forecast.model_weights).map(([model, weight]) => (
+                              <div key={model} className="flex items-center space-x-3">
+                                <span className="w-20 text-sm uppercase">{model}</span>
+                                <div className="flex-1 h-3 bg-muted rounded-full overflow-hidden">
+                                  <div 
+                                    className="h-full bg-accent rounded-full transition-all"
+                                    style={{ width: `${(weight as number) * 100}%` }}
+                                  />
+                                </div>
+                                <span className="text-sm font-medium w-12 text-right">{((weight as number) * 100).toFixed(0)}%</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Individual Model Predictions */}
+                      {forecast.model_predictions && (
+                        <div className="p-4 border rounded-lg">
+                          <h4 className="font-semibold mb-3">Individual Model Predictions</h4>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {forecast.model_predictions.arima_prediction && (
+                              <div className="bg-muted/50 p-3 rounded-lg text-center">
+                                <p className="text-xs text-muted-foreground">ARIMA</p>
+                                <p className="text-lg font-bold">₹{forecast.model_predictions.arima_prediction.toFixed(0)}</p>
+                              </div>
+                            )}
+                            {forecast.model_predictions.xgboost_prediction && (
+                              <div className="bg-muted/50 p-3 rounded-lg text-center">
+                                <p className="text-xs text-muted-foreground">XGBoost</p>
+                                <p className="text-lg font-bold">₹{forecast.model_predictions.xgboost_prediction.toFixed(0)}</p>
+                              </div>
+                            )}
+                            {forecast.model_predictions.lstm_prediction && (
+                              <div className="bg-muted/50 p-3 rounded-lg text-center">
+                                <p className="text-xs text-muted-foreground">LSTM</p>
+                                <p className="text-lg font-bold">₹{forecast.model_predictions.lstm_prediction.toFixed(0)}</p>
+                              </div>
+                            )}
+                            <div className="bg-primary/10 p-3 rounded-lg text-center">
+                              <p className="text-xs text-muted-foreground">Ensemble</p>
+                              <p className="text-lg font-bold text-primary">₹{forecast.model_predictions.ensemble_prediction.toFixed(0)}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="p-4 border rounded-lg bg-muted/30">
                         <h4 className="font-semibold mb-2">Connect External ML API</h4>
                         <p className="text-sm text-muted-foreground mb-3">
@@ -519,8 +580,11 @@ const MarketForecast = () => {
                         </p>
                         <div className="text-xs font-mono bg-background p-2 rounded">
                           POST /forecast<br/>
-                          {`{ state, district, market, commodity, variety, horizon }`}
+                          {`{ state, district, market, commodity, variety, horizon, features, historical_prices }`}
                         </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Set <code className="bg-background px-1 rounded">VITE_ML_API_URL</code> environment variable or enter URL above.
+                        </p>
                       </div>
                     </TabsContent>
                   </Tabs>
