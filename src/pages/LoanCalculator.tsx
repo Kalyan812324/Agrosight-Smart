@@ -49,29 +49,44 @@ const LoanCalculator = () => {
     }
 
     const principal = parseFloat(amount);
-    const monthlyRate = parseFloat(interestRate) / 100 / 12;
+    const annualRate = parseFloat(interestRate) / 100;
+    const monthlyRate = annualRate / 12;
     const months = parseInt(tenure);
+    const years = months / 12;
 
-    // EMI calculation using the standard formula
-    const emi = principal * monthlyRate * Math.pow(1 + monthlyRate, months) / 
-                (Math.pow(1 + monthlyRate, months) - 1);
+    // EMI calculation using standard reducing balance formula
+    // EMI = P × r × (1+r)^n / ((1+r)^n - 1)
+    // where P = Principal, r = monthly rate, n = number of months
+    const compoundFactor = Math.pow(1 + monthlyRate, months);
+    const emi = (principal * monthlyRate * compoundFactor) / (compoundFactor - 1);
     
-    const totalAmount = emi * months;
-    const totalInterest = totalAmount - principal;
+    const totalAmountEMI = emi * months;
+    const totalInterestEMI = totalAmountEMI - principal;
     
-    // Simple interest calculation for comparison
-    const simpleInterest = principal * (parseFloat(interestRate) / 100) * (months / 12);
+    // Simple Interest: SI = P × R × T
+    // where P = Principal, R = annual rate, T = time in years
+    const simpleInterest = principal * annualRate * years;
     const simpleTotal = principal + simpleInterest;
 
+    // Pure Compound Interest (lump sum at end, no monthly payments)
+    // A = P × (1 + r/n)^(n×t)
+    // where n = compounding frequency (12 for monthly), t = years
+    const compoundAmount = principal * Math.pow(1 + monthlyRate, months);
+    const pureCompoundInterest = compoundAmount - principal;
+
     setCalculation({
-      emi: Math.round(emi),
-      totalAmount: Math.round(totalAmount),
-      totalInterest: Math.round(totalInterest),
+      emi: Math.round(emi * 100) / 100,
+      totalAmount: Math.round(totalAmountEMI * 100) / 100,
+      totalInterest: Math.round(totalInterestEMI * 100) / 100,
       principal: principal,
-      simpleInterest: Math.round(simpleInterest),
-      simpleTotal: Math.round(simpleTotal),
-      savings: Math.round(simpleTotal - totalAmount), // Usually negative for compound
-      monthlyBreakdown: generateMonthlyBreakdown(principal, monthlyRate, months, emi)
+      simpleInterest: Math.round(simpleInterest * 100) / 100,
+      simpleTotal: Math.round(simpleTotal * 100) / 100,
+      pureCompoundInterest: Math.round(pureCompoundInterest * 100) / 100,
+      pureCompoundTotal: Math.round(compoundAmount * 100) / 100,
+      monthlyBreakdown: generateMonthlyBreakdown(principal, monthlyRate, months, emi),
+      annualRate,
+      months,
+      years
     });
 
     toast({
@@ -276,44 +291,96 @@ const LoanCalculator = () => {
                     <span>Interest Comparison</span>
                   </CardTitle>
                   <CardDescription>
-                    Compound vs Simple Interest Analysis
+                    EMI (Reducing Balance) vs Simple vs Pure Compound Interest
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-3">
-                      <h4 className="font-semibold text-primary">Compound Interest (EMI)</h4>
-                      <div className="space-y-2">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* EMI - Reducing Balance Method */}
+                    <div className="space-y-3 p-4 bg-primary/5 rounded-lg">
+                      <h4 className="font-semibold text-primary">EMI (Reducing Balance)</h4>
+                      <p className="text-xs text-muted-foreground">Interest on decreasing principal</p>
+                      <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
                           <span>Principal:</span>
                           <span>₹{calculation.principal.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Interest:</span>
-                          <span>₹{calculation.totalInterest.toLocaleString()}</span>
+                          <span>Total Interest:</span>
+                          <span className="text-red-600">₹{calculation.totalInterest.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between font-bold border-t pt-2">
-                          <span>Total:</span>
+                          <span>Total Payable:</span>
                           <span>₹{calculation.totalAmount.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>Monthly EMI:</span>
+                          <span>₹{calculation.emi.toLocaleString()}</span>
                         </div>
                       </div>
                     </div>
                     
-                    <div className="space-y-3">
+                    {/* Simple Interest */}
+                    <div className="space-y-3 p-4 bg-blue-50 rounded-lg">
                       <h4 className="font-semibold text-blue-600">Simple Interest</h4>
-                      <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">SI = P × R × T</p>
+                      <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
                           <span>Principal:</span>
                           <span>₹{calculation.principal.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Interest:</span>
-                          <span>₹{calculation.simpleInterest.toLocaleString()}</span>
+                          <span>Total Interest:</span>
+                          <span className="text-blue-600">₹{calculation.simpleInterest.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between font-bold border-t pt-2">
-                          <span>Total:</span>
+                          <span>Total Payable:</span>
                           <span>₹{calculation.simpleTotal.toLocaleString()}</span>
                         </div>
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>Interest Rate:</span>
+                          <span>{(calculation.annualRate * 100).toFixed(2)}% p.a.</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Pure Compound Interest */}
+                    <div className="space-y-3 p-4 bg-amber-50 rounded-lg">
+                      <h4 className="font-semibold text-amber-600">Pure Compound Interest</h4>
+                      <p className="text-xs text-muted-foreground">A = P × (1 + r/n)^(n×t)</p>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>Principal:</span>
+                          <span>₹{calculation.principal.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Total Interest:</span>
+                          <span className="text-amber-600">₹{calculation.pureCompoundInterest.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between font-bold border-t pt-2">
+                          <span>Maturity Amount:</span>
+                          <span>₹{calculation.pureCompoundTotal.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>Compounding:</span>
+                          <span>Monthly</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Formula Reference */}
+                  <div className="mt-6 p-4 bg-muted/50 rounded-lg">
+                    <h5 className="font-medium mb-2 text-sm">Formula Reference</h5>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-muted-foreground">
+                      <div>
+                        <strong>EMI:</strong> P × r × (1+r)^n / ((1+r)^n - 1)
+                      </div>
+                      <div>
+                        <strong>Simple:</strong> P × R × T
+                      </div>
+                      <div>
+                        <strong>Compound:</strong> P × (1 + r/n)^(n×t)
                       </div>
                     </div>
                   </div>
