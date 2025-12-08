@@ -207,15 +207,22 @@ serve(async (req) => {
       );
     }
 
-    // For external ML API, proxy the request
+    // For external ML API, proxy the request with timeout
     if (ml_api_url) {
       console.log(`Proxying to external ML API: ${ml_api_url}`);
       try {
+        // Use AbortController with 8 second timeout to prevent WORKER_LIMIT errors
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        
         const mlResponse = await fetch(ml_api_url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ state, district, market, commodity, variety, horizon })
+          body: JSON.stringify({ state, district, market, commodity, variety, horizon }),
+          signal: controller.signal
         });
+        
+        clearTimeout(timeoutId);
         
         if (!mlResponse.ok) {
           throw new Error(`ML API returned ${mlResponse.status}`);
@@ -227,7 +234,10 @@ serve(async (req) => {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (mlError) {
-        console.error('External ML API error, falling back to statistical:', mlError);
+        const errorMsg = mlError.name === 'AbortError' 
+          ? 'ML API timeout (8s) - using statistical fallback' 
+          : `ML API error: ${mlError.message}`;
+        console.warn(errorMsg);
       }
     }
 
