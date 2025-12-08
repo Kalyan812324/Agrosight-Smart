@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.predict-yield]
 verify_jwt = false
+
+[functions.sync-agmarknet]
+verify_jwt = false

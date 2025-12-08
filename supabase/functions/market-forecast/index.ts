@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,9 +22,17 @@ interface HistoricalData {
   min_price: number;
   max_price: number;
   arrivals?: number;
+  // Feature columns from mandi_prices
+  price_lag_1?: number;
+  price_lag_7?: number;
+  price_lag_30?: number;
+  rolling_mean_7?: number;
+  rolling_mean_30?: number;
+  momentum_7?: number;
+  volatility_30?: number;
 }
 
-// Fallback statistical forecasting when no external ML API is configured
+// Statistical forecasting with ML-ready features
 function statisticalForecast(history: HistoricalData[], horizon: number) {
   if (history.length < 7) {
     throw new Error("Insufficient historical data for forecasting");
@@ -59,13 +68,24 @@ function statisticalForecast(history: HistoricalData[], horizon: number) {
     seasonality[i] = seasonCount[i] > 0 ? seasonality[i] / seasonCount[i] : 0;
   }
   
-  // Calculate momentum and volatility
-  const recentPrices = prices.slice(-7);
-  const recentMean = recentPrices.reduce((a, b) => a + b, 0) / 7;
-  const momentum = (recentMean - mean) / mean;
+  // Use stored features if available, otherwise calculate
+  const lastRecord = history[history.length - 1];
+  const momentum = lastRecord.momentum_7 !== undefined 
+    ? lastRecord.momentum_7 / 100 
+    : (() => {
+        const recentPrices = prices.slice(-7);
+        const recentMean = recentPrices.reduce((a, b) => a + b, 0) / 7;
+        return (recentMean - mean) / mean;
+      })();
   
-  const recentVariance = recentPrices.reduce((a, b) => a + Math.pow(b - recentMean, 2), 0) / 7;
-  const volatility = Math.sqrt(recentVariance) / recentMean;
+  const volatility = lastRecord.volatility_30 !== undefined
+    ? lastRecord.volatility_30 / 100
+    : (() => {
+        const recentPrices = prices.slice(-7);
+        const recentMean = recentPrices.reduce((a, b) => a + b, 0) / 7;
+        const recentVariance = recentPrices.reduce((a, b) => a + Math.pow(b - recentMean, 2), 0) / 7;
+        return Math.sqrt(recentVariance) / recentMean;
+      })();
   
   // Generate forecasts
   const forecasts = [];
@@ -123,7 +143,7 @@ function statisticalForecast(history: HistoricalData[], horizon: number) {
   return {
     forecasts,
     model_used: "Statistical Ensemble (Trend + Seasonality + Momentum)",
-    model_version: "1.0.0",
+    model_version: "1.1.0",
     feature_importance: normalizedImportance,
     top_drivers: topDrivers,
     statistics: {
@@ -134,6 +154,40 @@ function statisticalForecast(history: HistoricalData[], horizon: number) {
       volatility_7d: Math.round(volatility * 1000) / 10
     }
   };
+}
+
+// Generate simulated data as fallback
+function generateSimulatedData(commodity: string): HistoricalData[] {
+  const basePrice = {
+    'Paddy': 2200, 'Rice': 3500, 'Wheat': 2400, 'Cotton': 6500,
+    'Maize': 2100, 'Onion': 2500, 'Potato': 1800, 'Tomato': 3000,
+    'Soybean': 4500, 'Groundnut': 5500, 'Chilli': 12000, 'Turmeric': 8000,
+    'Sugarcane': 350, 'Mustard': 5000, 'Jowar': 2800, 'Bajra': 2300
+  }[commodity] || 2500;
+
+  const historicalData: HistoricalData[] = [];
+  
+  for (let i = 89; i >= 0; i--) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    
+    const trend = -i * 0.5;
+    const seasonality = Math.sin(i * 2 * Math.PI / 30) * basePrice * 0.05;
+    const weeklyPattern = Math.sin(i * 2 * Math.PI / 7) * basePrice * 0.02;
+    const noise = (Math.random() - 0.5) * basePrice * 0.08;
+    
+    const modalPrice = Math.round(basePrice + trend + seasonality + weeklyPattern + noise);
+    
+    historicalData.push({
+      date: date.toISOString().split('T')[0],
+      modal_price: modalPrice,
+      min_price: Math.round(modalPrice * 0.92),
+      max_price: Math.round(modalPrice * 1.08),
+      arrivals: Math.round(500 + Math.random() * 1000)
+    });
+  }
+  
+  return historicalData;
 }
 
 serve(async (req) => {
@@ -177,36 +231,76 @@ serve(async (req) => {
       }
     }
 
-    // Generate simulated historical data for demo
-    // In production, this would come from the mandi_prices table
-    const historicalData: HistoricalData[] = [];
-    const basePrice = {
-      'Paddy': 2200, 'Rice': 3500, 'Wheat': 2400, 'Cotton': 6500,
-      'Maize': 2100, 'Onion': 2500, 'Potato': 1800, 'Tomato': 3000,
-      'Soybean': 4500, 'Groundnut': 5500, 'Chilli': 12000, 'Turmeric': 8000,
-      'Sugarcane': 350, 'Mustard': 5000, 'Jowar': 2800, 'Bajra': 2300
-    }[commodity] || 2500;
+    // Try to fetch real data from mandi_prices
+    let historicalData: HistoricalData[] = [];
+    let dataSource = 'simulated';
 
-    // Generate 90 days of historical data
-    for (let i = 89; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL');
+      const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
       
-      // Add realistic patterns
-      const trend = -i * 0.5; // Slight upward trend over time
-      const seasonality = Math.sin(i * 2 * Math.PI / 30) * basePrice * 0.05; // Monthly cycle
-      const weeklyPattern = Math.sin(i * 2 * Math.PI / 7) * basePrice * 0.02; // Weekly pattern
-      const noise = (Math.random() - 0.5) * basePrice * 0.08;
-      
-      const modalPrice = Math.round(basePrice + trend + seasonality + weeklyPattern + noise);
-      
-      historicalData.push({
-        date: date.toISOString().split('T')[0],
-        modal_price: modalPrice,
-        min_price: Math.round(modalPrice * 0.92),
-        max_price: Math.round(modalPrice * 1.08),
-        arrivals: Math.round(500 + Math.random() * 1000)
-      });
+      if (supabaseUrl && supabaseKey) {
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        // Query mandi_prices for historical data
+        let query = supabase
+          .from('mandi_prices')
+          .select(`
+            arrival_date,
+            modal_price,
+            min_price,
+            max_price,
+            arrivals_tonnes,
+            price_lag_1,
+            price_lag_7,
+            price_lag_30,
+            rolling_mean_7,
+            rolling_mean_30,
+            momentum_7,
+            volatility_30
+          `)
+          .eq('state', state)
+          .eq('commodity', commodity)
+          .order('arrival_date', { ascending: true })
+          .limit(90);
+
+        // Add market filter if provided
+        if (market) {
+          query = query.eq('market', market);
+        }
+
+        const { data, error } = await query;
+
+        if (!error && data && data.length >= 7) {
+          console.log(`Found ${data.length} records in mandi_prices`);
+          historicalData = data.map(row => ({
+            date: row.arrival_date,
+            modal_price: Number(row.modal_price),
+            min_price: Number(row.min_price),
+            max_price: Number(row.max_price),
+            arrivals: row.arrivals_tonnes ? Number(row.arrivals_tonnes) : undefined,
+            price_lag_1: row.price_lag_1 ? Number(row.price_lag_1) : undefined,
+            price_lag_7: row.price_lag_7 ? Number(row.price_lag_7) : undefined,
+            price_lag_30: row.price_lag_30 ? Number(row.price_lag_30) : undefined,
+            rolling_mean_7: row.rolling_mean_7 ? Number(row.rolling_mean_7) : undefined,
+            rolling_mean_30: row.rolling_mean_30 ? Number(row.rolling_mean_30) : undefined,
+            momentum_7: row.momentum_7 ? Number(row.momentum_7) : undefined,
+            volatility_30: row.volatility_30 ? Number(row.volatility_30) : undefined,
+          }));
+          dataSource = 'mandi_prices';
+        } else {
+          console.log(`Insufficient data in mandi_prices (${data?.length || 0} records), using simulated`);
+        }
+      }
+    } catch (dbError) {
+      console.warn('Database query failed, using simulated data:', dbError);
+    }
+
+    // Fall back to simulated data if needed
+    if (historicalData.length < 7) {
+      console.log('Using simulated historical data');
+      historicalData = generateSimulatedData(commodity);
+      dataSource = 'simulated';
     }
 
     // Run statistical forecast
@@ -215,7 +309,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        source: 'statistical_model',
+        source: dataSource === 'mandi_prices' ? 'mandi_prices_statistical' : 'simulated_statistical',
+        data_source: dataSource,
         request: { state, district, market, commodity, variety, horizon },
         historical_summary: {
           days_analyzed: historicalData.length,
