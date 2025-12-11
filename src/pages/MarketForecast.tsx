@@ -42,6 +42,7 @@ interface ForecastResult {
     days_analyzed: number;
     latest_price: number;
     latest_date: string;
+    price_range?: { min: number; max: number };
   };
   forecasts: Forecast[];
   model_used: string;
@@ -52,8 +53,10 @@ interface ForecastResult {
     historical_mean: number;
     historical_std: number;
     trend_per_day: number;
+    trend_r_squared?: number;
     momentum_7d: number;
     volatility_7d: number;
+    coefficient_of_variation?: number;
   };
   model_weights?: Record<string, number>;
   model_predictions?: ModelPrediction;
@@ -435,6 +438,30 @@ const MarketForecast = () => {
                           <p className="text-xs text-muted-foreground">Std Deviation</p>
                           <p className="text-xl font-bold">₹{forecast.statistics.historical_std}</p>
                         </div>
+                      </div>
+
+                      {/* Additional Statistics */}
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {forecast.statistics.trend_r_squared !== undefined && (
+                          <div className="bg-primary/5 p-3 rounded-lg">
+                            <p className="text-xs text-muted-foreground">Trend R² (fit quality)</p>
+                            <p className="text-lg font-semibold">{(forecast.statistics.trend_r_squared * 100).toFixed(1)}%</p>
+                          </div>
+                        )}
+                        {forecast.statistics.coefficient_of_variation !== undefined && (
+                          <div className="bg-primary/5 p-3 rounded-lg">
+                            <p className="text-xs text-muted-foreground">Coeff. of Variation</p>
+                            <p className="text-lg font-semibold">{forecast.statistics.coefficient_of_variation}%</p>
+                          </div>
+                        )}
+                        {forecast.historical_summary.price_range && (
+                          <div className="bg-primary/5 p-3 rounded-lg">
+                            <p className="text-xs text-muted-foreground">90-Day Range</p>
+                            <p className="text-lg font-semibold">
+                              ₹{forecast.historical_summary.price_range.min} - ₹{forecast.historical_summary.price_range.max}
+                            </p>
+                          </div>
+                        )}
                       </div>
 
                       {/* Feature Importance */}
