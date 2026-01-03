@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,9 +17,12 @@ import {
   CheckCircle2,
   Sprout,
   BarChart3,
-  Target
+  Target,
+  RefreshCw,
+  Link2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
 
 // Types
 interface ExpenseCategory {
@@ -40,6 +43,8 @@ interface PredictionData {
   yieldUnit: string;
   predictedPrice: number | null;
   priceUnit: string;
+  cropType: string | null;
+  isFromYieldPredictor: boolean;
 }
 
 // Utility functions for formatting
@@ -73,18 +78,43 @@ const initialExpenseCategories: ExpenseCategory[] = [
 ];
 
 const ExpenseAnalyzer = () => {
+  const navigate = useNavigate();
+  
   // State for expense categories
   const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>(initialExpenseCategories);
   const [otherExpenses, setOtherExpenses] = useState<OtherExpense[]>([]);
   const [newExpenseName, setNewExpenseName] = useState('');
   
-  // State for AI predictions (simulating integration)
+  // State for AI predictions
   const [predictions, setPredictions] = useState<PredictionData>({
-    predictedYield: 2500,
+    predictedYield: null,
     yieldUnit: 'kg',
-    predictedPrice: 45,
+    predictedPrice: null,
     priceUnit: 'per kg',
+    cropType: null,
+    isFromYieldPredictor: false,
   });
+
+  // Load yield prediction from localStorage (set by YieldPredictor)
+  useEffect(() => {
+    const savedPrediction = localStorage.getItem('yieldPredictionForExpenseAnalyzer');
+    if (savedPrediction) {
+      try {
+        const parsed = JSON.parse(savedPrediction);
+        setPredictions(prev => ({
+          ...prev,
+          predictedYield: parsed.totalProduction || null,
+          yieldUnit: 'kg',
+          predictedPrice: parsed.pricePerKg || null,
+          priceUnit: 'per kg',
+          cropType: parsed.cropType || null,
+          isFromYieldPredictor: true,
+        }));
+      } catch (e) {
+        console.error('Failed to parse saved prediction:', e);
+      }
+    }
+  }, []);
 
   // Handle expense category change
   const handleExpenseChange = useCallback((id: string, value: string) => {
@@ -318,20 +348,58 @@ const ExpenseAnalyzer = () => {
             {/* AI Prediction Section */}
             <Card className="bg-gradient-card border-0 shadow-card">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Sprout className="h-5 w-5 text-primary" />
-                  AI Prediction Data
-                </CardTitle>
-                <CardDescription>
-                  Values from AgroSight's AI prediction modules. Edit to simulate different scenarios.
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Sprout className="h-5 w-5 text-primary" />
+                      AI Prediction Data
+                    </CardTitle>
+                    <CardDescription>
+                      {predictions.isFromYieldPredictor 
+                        ? `Connected to Yield Predictor${predictions.cropType ? ` • ${predictions.cropType}` : ''}`
+                        : 'Get predictions from Yield Predictor or enter manually'}
+                    </CardDescription>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => navigate('/yield-predictor')}
+                    className="gap-2"
+                  >
+                    <Link2 className="h-4 w-4" />
+                    Go to Yield Predictor
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
+                {predictions.isFromYieldPredictor && (
+                  <div className="mb-4 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
+                    <p className="text-sm text-green-700 dark:text-green-400 flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Yield data auto-loaded from your last prediction
+                      {predictions.cropType && <Badge variant="outline" className="ml-2">{predictions.cropType}</Badge>}
+                    </p>
+                  </div>
+                )}
+                
+                {!predictions.isFromYieldPredictor && predictions.predictedYield === null && (
+                  <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <p className="text-sm text-blue-700 dark:text-blue-400 flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4" />
+                      No prediction found. Use the Yield Predictor first to auto-fill, or enter values manually below.
+                    </p>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <Label htmlFor="yield" className="flex items-center gap-2">
                       Predicted Crop Yield
-                      <Badge className="bg-primary/10 text-primary border-0">AI Predicted</Badge>
+                      {predictions.isFromYieldPredictor && (
+                        <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 border-0">
+                          From Yield Predictor
+                        </Badge>
+                      )}
                     </Label>
                     <div className="flex gap-2">
                       <div className="relative flex-1">
@@ -340,8 +408,11 @@ const ExpenseAnalyzer = () => {
                           type="number"
                           min="0"
                           value={predictions.predictedYield ?? ''}
-                          onChange={(e) => handlePredictionChange('predictedYield', e.target.value)}
-                          placeholder="Enter yield"
+                          onChange={(e) => {
+                            handlePredictionChange('predictedYield', e.target.value);
+                            setPredictions(prev => ({ ...prev, isFromYieldPredictor: false }));
+                          }}
+                          placeholder="Enter yield in kg"
                         />
                       </div>
                       <Input
@@ -349,8 +420,14 @@ const ExpenseAnalyzer = () => {
                         onChange={(e) => setPredictions(prev => ({ ...prev, yieldUnit: e.target.value }))}
                         className="w-24"
                         placeholder="Unit"
+                        disabled
                       />
                     </div>
+                    {predictions.predictedYield !== null && predictions.predictedYield > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Your crop is predicted to yield {predictions.predictedYield.toLocaleString('en-IN')} kg
+                      </p>
+                    )}
                     {predictions.predictedYield === 0 && (
                       <p className="text-xs text-destructive flex items-center gap-1">
                         <AlertCircle className="h-3 w-3" />

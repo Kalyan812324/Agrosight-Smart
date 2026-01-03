@@ -238,6 +238,17 @@ const YieldPredictor = () => {
       const result = await response.json();
       setPrediction(result);
       
+      // Save prediction to localStorage for ExpenseAnalyzer integration
+      const expenseAnalyzerData = {
+        totalProduction: result.prediction.totalProduction * 1000, // Convert tonnes to kg
+        pricePerKg: result.financialProjection?.pricePerQuintal 
+          ? result.financialProjection.pricePerQuintal / 100 // Convert per quintal to per kg
+          : null,
+        cropType: validatedData.crop,
+        timestamp: new Date().toISOString(),
+      };
+      localStorage.setItem('yieldPredictionForExpenseAnalyzer', JSON.stringify(expenseAnalyzerData));
+      
       toast({
         title: "Prediction Complete",
         description: `Estimated yield: ${result.prediction.yieldPerHectare} tons/hectare with ${result.prediction.confidence}% confidence`
