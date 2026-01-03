@@ -316,8 +316,9 @@ serve(async (req) => {
         } else {
           insertedCount++;
         }
-      } catch (recordError) {
-        errors.push(`Record error: ${recordError.message}`);
+      } catch (recordError: unknown) {
+        const err = recordError as Error;
+        errors.push(`Record error: ${err.message}`);
       }
     }
 
@@ -349,8 +350,9 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error) {
-    console.error('Sync error:', error);
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error('Sync error:', err);
 
     // Update sync log with error
     if (syncLogId) {
@@ -358,14 +360,14 @@ serve(async (req) => {
         .from('api_sync_logs')
         .update({
           sync_status: 'failed',
-          error_message: error.message,
+          error_message: err.message,
           sync_end_time: new Date().toISOString(),
         })
         .eq('id', syncLogId);
     }
 
     return new Response(
-      JSON.stringify({ error: error.message, sync_log_id: syncLogId }),
+      JSON.stringify({ error: err.message, sync_log_id: syncLogId }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

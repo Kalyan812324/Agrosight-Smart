@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, BarChart3, Calculator, Upload, Sprout, DollarSign } from "lucide-react";
+import { TrendingUp, BarChart3, Calculator, Upload, Sprout, DollarSign, Wallet } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const Dashboard = () => {
@@ -25,6 +25,13 @@ const Dashboard = () => {
       icon: Calculator,
       href: "/loan-calculator",
       color: "text-purple-600"
+    },
+    {
+      title: "Profit Analyzer",
+      description: "Calculate exact profit/loss with expense tracking and AI predictions",
+      icon: Wallet,
+      href: "/expense-analyzer",
+      color: "text-orange-600"
     }
   ];
 
@@ -69,7 +76,7 @@ const Dashboard = () => {
         </div>
 
         {/* Main Features */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {features.map((feature, index) => {
             const Icon = feature.icon;
             return (

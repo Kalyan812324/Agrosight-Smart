@@ -580,10 +580,11 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
     
-  } catch (error) {
-    console.error("Prediction error:", error);
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error("Prediction error:", err);
     return new Response(
-      JSON.stringify({ error: "Prediction failed", details: error.message }),
+      JSON.stringify({ error: "Prediction failed", details: err.message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
