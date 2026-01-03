@@ -81,19 +81,20 @@ serve(async (req) => {
       let updated = 0;
       for (const pred of pendingPredictions || []) {
         // Fetch actual price for target date
-        let query = supabase
+        const baseQuery = supabase
           .from('mandi_timeseries')
           .select('modal_price')
           .eq('state', pred.state)
           .eq('district', pred.district)
           .eq('market', pred.market)
           .eq('commodity', pred.commodity)
-          .eq('arrival_date', pred.target_date)
-          .maybeSingle();
+          .eq('arrival_date', pred.target_date);
 
-        if (pred.variety) query = query.eq('variety', pred.variety);
+        const finalQuery = pred.variety 
+          ? baseQuery.eq('variety', pred.variety).maybeSingle()
+          : baseQuery.maybeSingle();
 
-        const { data: actual } = await query;
+        const { data: actual } = await finalQuery;
 
         if (actual?.modal_price) {
           // Get the prediction value

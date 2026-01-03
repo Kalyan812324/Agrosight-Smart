@@ -389,10 +389,11 @@ serve(async (req) => {
           );
         }
         console.warn(`ML API returned status ${mlResponse.status}, falling back to statistical`);
-      } catch (mlError) {
-        const errorMsg = mlError.name === 'AbortError' 
+      } catch (mlError: unknown) {
+        const err = mlError as Error;
+        const errorMsg = err.name === 'AbortError' 
           ? 'ML API timeout (10s)' 
-          : `ML API error: ${mlError.message}`;
+          : `ML API error: ${err.message}`;
         console.warn(errorMsg);
       }
     }
@@ -479,13 +480,14 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error) {
-    console.error('Forecast error:', error);
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error('Forecast error:', err);
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message || 'Forecast generation failed',
-        details: error.stack 
+        error: err.message || 'Forecast generation failed',
+        details: err.stack 
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

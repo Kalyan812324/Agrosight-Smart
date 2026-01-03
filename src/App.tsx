@@ -11,6 +11,7 @@ import Weather from "./pages/Weather";
 import YieldPredictor from "./pages/YieldPredictor";
 import MarketForecast from "./pages/MarketForecast";
 import LoanCalculator from "./pages/LoanCalculator";
+import ExpenseAnalyzer from "./pages/ExpenseAnalyzer";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
           <Route path="/yield-predictor" element={<YieldPredictor />} />
           <Route path="/market-forecast" element={<MarketForecast />} />
           <Route path="/loan-calculator" element={<LoanCalculator />} />
+          <Route path="/expense-analyzer" element={<ExpenseAnalyzer />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

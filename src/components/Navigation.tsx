@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, Sprout, BarChart3, Calculator, TrendingUp, Cloud } from "lucide-react";
+import { Menu, X, Sprout, BarChart3, Calculator, TrendingUp, Cloud, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -11,10 +11,11 @@ const Navigation = () => {
   const navItems = [
     { href: "/", label: "Home", icon: Sprout },
     { href: "/dashboard", label: "Dashboard", icon: BarChart3 },
-    { href: "/weather", label: "Weather Forecast", icon: Cloud },
+    { href: "/weather", label: "Weather", icon: Cloud },
     { href: "/yield-predictor", label: "Yield Predictor", icon: TrendingUp },
-    { href: "/market-forecast", label: "Market Forecast", icon: BarChart3 },
-    { href: "/loan-calculator", label: "Loan Calculator", icon: Calculator },
+    { href: "/market-forecast", label: "Market", icon: BarChart3 },
+    { href: "/loan-calculator", label: "Loans", icon: Calculator },
+    { href: "/expense-analyzer", label: "Profit Analyzer", icon: Wallet },
   ];
 
   const isActive = (path: string) => location.pathname === path;
