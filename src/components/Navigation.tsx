@@ -1,17 +1,12 @@
 import { useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, Sprout, BarChart3, Calculator, TrendingUp, Cloud, Wallet, LogIn, LogOut, User } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
+import { Menu, X, Sprout, BarChart3, Calculator, TrendingUp, Cloud, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
 
 const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
-  const navigate = useNavigate();
-  const { user, isAuthenticated, signOut } = useAuth();
-  const { toast } = useToast();
   
   const navItems = [
     { href: "/", label: "Home", icon: Sprout },
@@ -24,24 +19,6 @@ const Navigation = () => {
   ];
 
   const isActive = (path: string) => location.pathname === path;
-
-  const handleSignOut = async () => {
-    const { error } = await signOut();
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to sign out. Please try again.",
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Signed Out",
-        description: "You have been successfully signed out.",
-      });
-      navigate("/");
-    }
-    setIsOpen(false);
-  };
 
   return (
     <nav className="bg-card/95 backdrop-blur-sm border-b border-border sticky top-0 z-50">
@@ -75,29 +52,6 @@ const Navigation = () => {
                 </Link>
               );
             })}
-          </div>
-
-          {/* Auth Buttons - Desktop */}
-          <div className="hidden md:flex items-center space-x-2">
-            {isAuthenticated ? (
-              <>
-                <div className="flex items-center space-x-2 px-3 py-2 text-sm text-muted-foreground">
-                  <User className="h-4 w-4" />
-                  <span className="max-w-[120px] truncate">{user?.email}</span>
-                </div>
-                <Button variant="outline" size="sm" onClick={handleSignOut}>
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Sign Out
-                </Button>
-              </>
-            ) : (
-              <Button variant="default" size="sm" asChild>
-                <Link to="/auth">
-                  <LogIn className="h-4 w-4 mr-2" />
-                  Sign In
-                </Link>
-              </Button>
-            )}
           </div>
 
           {/* Mobile menu button */}
@@ -137,34 +91,6 @@ const Navigation = () => {
                 </Link>
               );
             })}
-            
-            {/* Mobile Auth */}
-            <div className="border-t border-border pt-2 mt-2">
-              {isAuthenticated ? (
-                <>
-                  <div className="flex items-center space-x-2 px-3 py-2 text-sm text-muted-foreground">
-                    <User className="h-5 w-5" />
-                    <span className="truncate">{user?.email}</span>
-                  </div>
-                  <button
-                    onClick={handleSignOut}
-                    className="flex items-center space-x-2 px-3 py-2 rounded-md text-base font-medium text-muted-foreground hover:text-primary hover:bg-primary/5 w-full"
-                  >
-                    <LogOut className="h-5 w-5" />
-                    <span>Sign Out</span>
-                  </button>
-                </>
-              ) : (
-                <Link
-                  to="/auth"
-                  onClick={() => setIsOpen(false)}
-                  className="flex items-center space-x-2 px-3 py-2 rounded-md text-base font-medium text-primary hover:bg-primary/5"
-                >
-                  <LogIn className="h-5 w-5" />
-                  <span>Sign In</span>
-                </Link>
-              )}
-            </div>
           </div>
         </div>
       )}
