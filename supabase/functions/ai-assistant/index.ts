@@ -1,16 +1,44 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Input validation schemas
+const messageSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  content: z.string().min(1, "Message cannot be empty").max(4000, "Message too long (max 4000 characters)")
+});
+
+const requestSchema = z.object({
+  messages: z.array(messageSchema).min(1, "At least one message required").max(50, "Too many messages (max 50)"),
+  language: z.enum(["english", "telugu"]).default("english")
+});
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, language = "english" } = await req.json();
+    // Parse and validate request body
+    const body = await req.json();
+    const validationResult = requestSchema.safeParse(body);
+    
+    if (!validationResult.success) {
+      console.error("Validation error:", validationResult.error.issues);
+      return new Response(
+        JSON.stringify({ 
+          error: "Invalid request format", 
+          details: validationResult.error.issues.map(i => i.message)
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    const { messages, language } = validationResult.data;
+    
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -43,12 +71,21 @@ serve(async (req) => {
         .order("year", { ascending: false })
         .limit(10);
 
+      // Sanitize context data to prevent injection via stored data
+      const sanitizedPredictions = predictions?.map(p => ({
+        crop_type: String(p.crop_type || "").slice(0, 100),
+        predicted_yield: Number(p.predicted_yield) || 0,
+        area_hectares: Number(p.area_hectares) || 0,
+        season: String(p.season || "").slice(0, 50),
+        state: String(p.state || "").slice(0, 100)
+      }));
+
       contextData = `
 User's Recent Data:
-${predictions?.length ? `Recent Crop Predictions: ${JSON.stringify(predictions)}` : "No predictions yet."}
+${sanitizedPredictions?.length ? `Recent Crop Predictions: ${JSON.stringify(sanitizedPredictions)}` : "No predictions yet."}
 
 Agricultural Reference Data:
-${yields?.length ? `Historical Yields: ${JSON.stringify(yields)}` : ""}
+${yields?.length ? `Historical Yields (${yields.length} records available)` : ""}
 `;
     }
 
@@ -77,6 +114,8 @@ Help users with:
 - Analysis of their data and predictions
 
 Be concise and clear.`;
+
+    console.log(`Processing AI request: ${messages.length} messages, language: ${language}`);
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",

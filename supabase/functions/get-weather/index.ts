@@ -1,9 +1,38 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Simple in-memory rate limiting (resets on function cold start)
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+const RATE_LIMIT = 30; // requests per window
+const RATE_WINDOW_MS = 60000; // 1 minute
+
+function checkRateLimit(clientIP: string): boolean {
+  const now = Date.now();
+  const record = rateLimitMap.get(clientIP);
+  
+  if (!record || now > record.resetTime) {
+    rateLimitMap.set(clientIP, { count: 1, resetTime: now + RATE_WINDOW_MS });
+    return true;
+  }
+  
+  if (record.count >= RATE_LIMIT) {
+    return false;
+  }
+  
+  record.count++;
+  return true;
+}
+
+// Input validation schema
+const requestSchema = z.object({
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180)
+});
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -11,24 +40,39 @@ serve(async (req) => {
   }
 
   try {
-    // Public weather endpoint - no authentication required; Supabase JWT verification is disabled in config.toml
+    // Rate limiting based on client IP
+    const clientIP = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || 
+                     req.headers.get("x-real-ip") || 
+                     "unknown";
+    
+    if (!checkRateLimit(clientIP)) {
+      console.warn(`Rate limit exceeded for IP: ${clientIP}`);
+      return new Response(
+        JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-
-    const { latitude, longitude } = await req.json();
-    console.log(`Weather request for coordinates: ${latitude}, ${longitude}`);
-
-    if (typeof latitude !== "number" || typeof longitude !== "number") {
+    // Parse and validate input
+    const body = await req.json();
+    const validationResult = requestSchema.safeParse(body);
+    
+    if (!validationResult.success) {
+      console.error("Validation error:", validationResult.error.issues);
       return new Response(
         JSON.stringify({ error: "Invalid coordinates provided" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    
+    const { latitude, longitude } = validationResult.data;
+    console.log(`Weather request for coordinates: ${latitude}, ${longitude} from IP: ${clientIP}`);
 
     // Fetch location name using reverse geocoding
     console.log("Fetching location name...");
     const geocodeUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10&addressdetails=1`;
     const geocodeResponse = await fetch(geocodeUrl, {
-      headers: { "User-Agent": "FarmSmartForecasts/1.0" }
+      headers: { "User-Agent": "AgroSight/1.0" }
     });
     
     let locationName = `${latitude.toFixed(4)}°, ${longitude.toFixed(4)}°`;
