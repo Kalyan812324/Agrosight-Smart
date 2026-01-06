@@ -6,63 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Rate limiting (in-memory, per-request)
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
-const RATE_LIMIT = 20; // 20 requests per minute
-const RATE_WINDOW_MS = 60000;
-
-function checkRateLimit(clientIP: string): boolean {
-  const now = Date.now();
-  const record = rateLimitMap.get(clientIP);
-  
-  if (!record || now > record.resetTime) {
-    rateLimitMap.set(clientIP, { count: 1, resetTime: now + RATE_WINDOW_MS });
-    return true;
-  }
-  
-  if (record.count >= RATE_LIMIT) {
-    return false;
-  }
-  
-  record.count++;
-  return true;
-}
-
-// SSRF Protection: Validate external URLs
-function isValidExternalUrl(urlString: string): { valid: boolean; error?: string } {
-  try {
-    const url = new URL(urlString);
-    
-    // Only allow HTTPS
-    if (url.protocol !== 'https:') {
-      return { valid: false, error: 'ML API URL must use HTTPS' };
-    }
-    
-    const hostname = url.hostname.toLowerCase();
-    
-    // Block localhost and loopback
-    if (hostname === 'localhost' || hostname.startsWith('127.') || hostname === '::1') {
-      return { valid: false, error: 'Cannot access localhost' };
-    }
-    
-    // Block private IP ranges
-    if (
-      hostname.startsWith('10.') ||
-      hostname.startsWith('192.168.') ||
-      hostname.match(/^172\.(1[6-9]|2[0-9]|3[0-1])\./) ||
-      hostname === '169.254.169.254' || // AWS/GCP metadata
-      hostname.endsWith('.internal') ||
-      hostname.endsWith('.local')
-    ) {
-      return { valid: false, error: 'Cannot access internal/private networks' };
-    }
-    
-    return { valid: true };
-  } catch {
-    return { valid: false, error: 'Invalid URL format' };
-  }
-}
-
 interface ForecastRequest {
   state: string;
   district: string;
@@ -394,48 +337,10 @@ serve(async (req) => {
   }
 
   try {
-    // Rate limiting
-    const clientIP = req.headers.get('x-forwarded-for')?.split(',')[0] || 
-                     req.headers.get('x-real-ip') || 
-                     'unknown';
-    
-    if (!checkRateLimit(clientIP)) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Rate limit exceeded. Please try again later.' }),
-        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Authentication check
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Authentication required' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    
-    const authSupabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } }
-    });
-
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await authSupabase.auth.getUser(token);
-    
-    if (claimsError || !claimsData?.user) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Invalid or expired token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     const body = await req.json() as ForecastRequest;
     const { state, district, market, commodity, variety, horizon = 7, ml_api_url } = body;
 
-    console.log(`Forecast request from user ${claimsData.user.id}: state=${state}, market=${market}, commodity=${commodity}, horizon=${horizon}`);
+    console.log(`Forecast request: state=${state}, market=${market}, commodity=${commodity}, horizon=${horizon}`);
 
     // Input validation
     if (!state || !market || !commodity) {
@@ -459,17 +364,8 @@ serve(async (req) => {
       );
     }
 
-    // Try external ML API first if provided - with SSRF protection
+    // Try external ML API first if provided
     if (ml_api_url) {
-      // Validate URL to prevent SSRF attacks
-      const urlValidation = isValidExternalUrl(ml_api_url);
-      if (!urlValidation.valid) {
-        return new Response(
-          JSON.stringify({ success: false, error: urlValidation.error }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
       console.log(`Attempting external ML API: ${ml_api_url}`);
       try {
         const controller = new AbortController();
