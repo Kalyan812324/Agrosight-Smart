@@ -5,7 +5,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Navigation from "./components/Navigation";
 import FloatingVoiceButton from "./components/FloatingVoiceButton";
+import ProtectedRoute from "./components/ProtectedRoute";
 import Index from "./pages/Index";
+import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Weather from "./pages/Weather";
 import YieldPredictor from "./pages/YieldPredictor";
@@ -25,12 +27,25 @@ const App = () => (
         <Navigation />
         <Routes>
           <Route path="/" element={<Index />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/weather" element={<Weather />} />
-          <Route path="/yield-predictor" element={<YieldPredictor />} />
-          <Route path="/market-forecast" element={<MarketForecast />} />
-          <Route path="/loan-calculator" element={<LoanCalculator />} />
-          <Route path="/expense-analyzer" element={<ExpenseAnalyzer />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/dashboard" element={
+            <ProtectedRoute><Dashboard /></ProtectedRoute>
+          } />
+          <Route path="/weather" element={
+            <ProtectedRoute><Weather /></ProtectedRoute>
+          } />
+          <Route path="/yield-predictor" element={
+            <ProtectedRoute><YieldPredictor /></ProtectedRoute>
+          } />
+          <Route path="/market-forecast" element={
+            <ProtectedRoute><MarketForecast /></ProtectedRoute>
+          } />
+          <Route path="/loan-calculator" element={
+            <ProtectedRoute><LoanCalculator /></ProtectedRoute>
+          } />
+          <Route path="/expense-analyzer" element={
+            <ProtectedRoute><ExpenseAnalyzer /></ProtectedRoute>
+          } />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
