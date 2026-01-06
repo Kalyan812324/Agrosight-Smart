@@ -142,11 +142,27 @@ const MarketForecast = () => {
     setIsLoading(true);
 
     try {
+      // Get auth session for secure API call
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        toast({
+          title: "Authentication Required",
+          description: "Please sign in to use the forecast feature",
+          variant: "destructive"
+        });
+        setIsLoading(false);
+        return;
+      }
+
       const response = await fetch(
         `https://xllpedrhhzoljkfvkgef.supabase.co/functions/v1/market-forecast`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
+          },
           body: JSON.stringify({
             state: selectedState,
             district: selectedDistrict,
@@ -157,6 +173,14 @@ const MarketForecast = () => {
           })
         }
       );
+
+      if (response.status === 401) {
+        throw new Error('Session expired. Please sign in again.');
+      }
+
+      if (response.status === 429) {
+        throw new Error('Too many requests. Please wait a moment.');
+      }
 
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
