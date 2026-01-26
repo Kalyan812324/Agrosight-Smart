@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Navigation from "./components/Navigation";
 import FloatingVoiceButton from "./components/FloatingVoiceButton";
+import ProtectedRoute from "./components/ProtectedRoute";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import Weather from "./pages/Weather";
@@ -12,6 +13,9 @@ import YieldPredictor from "./pages/YieldPredictor";
 import MarketForecast from "./pages/MarketForecast";
 import LoanCalculator from "./pages/LoanCalculator";
 import ExpenseAnalyzer from "./pages/ExpenseAnalyzer";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,13 +28,44 @@ const App = () => (
       <BrowserRouter>
         <Navigation />
         <Routes>
+          {/* Public Routes */}
           <Route path="/" element={<Index />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/weather" element={<Weather />} />
-          <Route path="/yield-predictor" element={<YieldPredictor />} />
-          <Route path="/market-forecast" element={<MarketForecast />} />
-          <Route path="/loan-calculator" element={<LoanCalculator />} />
-          <Route path="/expense-analyzer" element={<ExpenseAnalyzer />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          
+          {/* Protected Routes - Require Authentication */}
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/weather" element={
+            <ProtectedRoute>
+              <Weather />
+            </ProtectedRoute>
+          } />
+          <Route path="/yield-predictor" element={
+            <ProtectedRoute>
+              <YieldPredictor />
+            </ProtectedRoute>
+          } />
+          <Route path="/market-forecast" element={
+            <ProtectedRoute>
+              <MarketForecast />
+            </ProtectedRoute>
+          } />
+          <Route path="/loan-calculator" element={
+            <ProtectedRoute>
+              <LoanCalculator />
+            </ProtectedRoute>
+          } />
+          <Route path="/expense-analyzer" element={
+            <ProtectedRoute>
+              <ExpenseAnalyzer />
+            </ProtectedRoute>
+          } />
+          
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

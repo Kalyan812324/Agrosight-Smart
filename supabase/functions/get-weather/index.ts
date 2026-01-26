@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -40,13 +41,41 @@ serve(async (req) => {
   }
 
   try {
-    // Rate limiting based on client IP
-    const clientIP = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || 
-                     req.headers.get("x-real-ip") || 
-                     "unknown";
+    // Authentication check - require valid JWT token
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      console.warn("Weather API: Unauthorized request - missing auth header");
+      return new Response(
+        JSON.stringify({ error: "Authentication required. Please log in to access weather data." }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Verify the JWT token
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
     
-    if (!checkRateLimit(clientIP)) {
-      console.warn(`Rate limit exceeded for IP: ${clientIP}`);
+    if (claimsError || !claimsData?.claims) {
+      console.warn("Weather API: Invalid token", claimsError?.message);
+      return new Response(
+        JSON.stringify({ error: "Invalid or expired session. Please log in again." }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const userId = claimsData.claims.sub;
+    console.log(`Weather API: Authenticated request from user ${userId}`);
+
+    // Rate limiting based on user ID instead of IP for authenticated users
+    const rateLimitKey = `user:${userId}`;
+    if (!checkRateLimit(rateLimitKey)) {
+      console.warn(`Rate limit exceeded for user: ${userId}`);
       return new Response(
         JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -66,7 +95,7 @@ serve(async (req) => {
     }
     
     const { latitude, longitude } = validationResult.data;
-    console.log(`Weather request for coordinates: ${latitude}, ${longitude} from IP: ${clientIP}`);
+    console.log(`Weather request for coordinates: ${latitude}, ${longitude} from user: ${userId}`);
 
     // Fetch location name using reverse geocoding
     console.log("Fetching location name...");
