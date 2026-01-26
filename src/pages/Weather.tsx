@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   Cloud, 
   Sun, 
@@ -27,7 +28,8 @@ import {
   Snowflake,
   CloudLightning,
   CloudFog,
-  Activity
+  Activity,
+  Shield
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -194,12 +196,20 @@ const Weather = () => {
     setLoading(true);
     setLocationError(null);
     try {
+      // Get the current session for authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error("Authentication required. Please log in to access weather data.");
+      }
+
       const response = await fetch(
         "https://xllpedrhhzoljkfvkgef.supabase.co/functions/v1/get-weather",
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            "Authorization": `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({ latitude, longitude }),
         }
@@ -222,7 +232,7 @@ const Weather = () => {
       console.error("Weather fetch error:", error);
       toast({
         title: "Error",
-        description: "Failed to fetch weather data. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to fetch weather data. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -307,11 +317,15 @@ const Weather = () => {
         <div className="text-center space-y-4">
           <div className="relative">
             <Cloud className="h-20 w-20 text-primary animate-pulse mx-auto" />
-            <Sun className="h-10 w-10 text-yellow-500 absolute -top-2 -right-2 animate-spin" style={{ animationDuration: '3s' }} />
+            <Sun className="h-10 w-10 text-accent absolute -top-2 -right-2 animate-spin" style={{ animationDuration: '3s' }} />
           </div>
           <h2 className="text-2xl font-bold text-foreground">Detecting Your Location...</h2>
           <p className="text-muted-foreground">Getting precise weather data for your farm</p>
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Shield className="h-4 w-4 text-primary" />
+            <span>Secure encrypted connection</span>
+          </div>
         </div>
       </div>
     );
