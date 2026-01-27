@@ -18,11 +18,16 @@ import {
   Sprout,
   BarChart3,
   Target,
+  Save,
+  Loader2,
   RefreshCw,
-  Link2
+  Link2,
+  Cloud,
+  CloudOff
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
+import { useFarmFinance } from "@/hooks/useFarmFinance";
 
 // Types
 interface ExpenseCategory {
@@ -56,13 +61,6 @@ const formatCurrency = (amount: number): string => {
   }).format(amount);
 };
 
-const formatCurrencyWithSign = (amount: number): string => {
-  const formatted = formatCurrency(Math.abs(amount));
-  if (amount > 0) return `+${formatted}`;
-  if (amount < 0) return `−${formatted.replace('₹', '₹')}`;
-  return formatted;
-};
-
 const formatPercentage = (value: number): string => {
   return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
 };
@@ -79,11 +77,21 @@ const initialExpenseCategories: ExpenseCategory[] = [
 
 const ExpenseAnalyzer = () => {
   const navigate = useNavigate();
+  const { 
+    data: savedData, 
+    loading, 
+    saving, 
+    saveFinanceData, 
+    clearFinanceData,
+    lastSaved,
+    isAuthenticated 
+  } = useFarmFinance();
   
   // State for expense categories
   const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>(initialExpenseCategories);
   const [otherExpenses, setOtherExpenses] = useState<OtherExpense[]>([]);
   const [newExpenseName, setNewExpenseName] = useState('');
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
   // State for AI predictions
   const [predictions, setPredictions] = useState<PredictionData>({
@@ -95,26 +103,62 @@ const ExpenseAnalyzer = () => {
     isFromYieldPredictor: false,
   });
 
-  // Load yield prediction from localStorage (set by YieldPredictor)
+  // Load saved data from database when available
   useEffect(() => {
-    const savedPrediction = localStorage.getItem('yieldPredictionForExpenseAnalyzer');
-    if (savedPrediction) {
-      try {
-        const parsed = JSON.parse(savedPrediction);
-        setPredictions(prev => ({
-          ...prev,
-          predictedYield: parsed.totalProduction || null,
-          yieldUnit: 'kg',
-          predictedPrice: parsed.pricePerKg || null,
-          priceUnit: 'per kg',
-          cropType: parsed.cropType || null,
-          isFromYieldPredictor: true,
-        }));
-      } catch (e) {
-        console.error('Failed to parse saved prediction:', e);
+    if (savedData) {
+      // Load expense categories from saved data
+      if (savedData.expense_categories && Array.isArray(savedData.expense_categories)) {
+        const savedCategories = savedData.expense_categories as ExpenseCategory[];
+        // Merge with initial categories to ensure all required fields exist
+        const mergedCategories = initialExpenseCategories.map(cat => {
+          const saved = savedCategories.find(s => s.id === cat.id);
+          return saved ? { ...cat, amount: saved.amount } : cat;
+        });
+        setExpenseCategories(mergedCategories);
+      }
+      
+      // Load other expenses
+      if (savedData.other_expenses && Array.isArray(savedData.other_expenses)) {
+        setOtherExpenses(savedData.other_expenses as OtherExpense[]);
+      }
+      
+      // Load predictions
+      setPredictions({
+        predictedYield: savedData.predicted_yield || null,
+        yieldUnit: savedData.yield_unit || 'kg',
+        predictedPrice: savedData.predicted_price || null,
+        priceUnit: savedData.price_unit || 'per kg',
+        cropType: savedData.crop_type || null,
+        isFromYieldPredictor: !!savedData.predicted_yield,
+      });
+      
+      setHasUnsavedChanges(false);
+    }
+  }, [savedData]);
+
+  // Load yield prediction from localStorage (set by YieldPredictor) - only if no saved data
+  useEffect(() => {
+    if (!savedData) {
+      const savedPrediction = localStorage.getItem('yieldPredictionForExpenseAnalyzer');
+      if (savedPrediction) {
+        try {
+          const parsed = JSON.parse(savedPrediction);
+          setPredictions(prev => ({
+            ...prev,
+            predictedYield: parsed.totalProduction || null,
+            yieldUnit: 'kg',
+            predictedPrice: parsed.pricePerKg || null,
+            priceUnit: 'per kg',
+            cropType: parsed.cropType || null,
+            isFromYieldPredictor: true,
+          }));
+          setHasUnsavedChanges(true);
+        } catch (e) {
+          console.error('Failed to parse saved prediction:', e);
+        }
       }
     }
-  }, []);
+  }, [savedData]);
 
   // Handle expense category change
   const handleExpenseChange = useCallback((id: string, value: string) => {
@@ -122,6 +166,7 @@ const ExpenseAnalyzer = () => {
     setExpenseCategories(prev => 
       prev.map(cat => cat.id === id ? { ...cat, amount: numValue } : cat)
     );
+    setHasUnsavedChanges(true);
   }, []);
 
   // Handle other expense change
@@ -135,6 +180,7 @@ const ExpenseAnalyzer = () => {
         return { ...exp, name: value };
       })
     );
+    setHasUnsavedChanges(true);
   }, []);
 
   // Add other expense
@@ -147,11 +193,13 @@ const ExpenseAnalyzer = () => {
     };
     setOtherExpenses(prev => [...prev, newExpense]);
     setNewExpenseName('');
+    setHasUnsavedChanges(true);
   }, [newExpenseName]);
 
   // Remove other expense
   const removeOtherExpense = useCallback((id: string) => {
     setOtherExpenses(prev => prev.filter(exp => exp.id !== id));
+    setHasUnsavedChanges(true);
   }, []);
 
   // Handle prediction changes
@@ -161,6 +209,7 @@ const ExpenseAnalyzer = () => {
       ...prev,
       [field]: isNaN(numValue) ? null : Math.max(0, numValue),
     }));
+    setHasUnsavedChanges(true);
   }, []);
 
   // Calculate financial metrics
@@ -209,6 +258,41 @@ const ExpenseAnalyzer = () => {
     };
   }, [expenseCategories, otherExpenses, predictions]);
 
+  // Save data to database
+  const handleSave = useCallback(async () => {
+    await saveFinanceData({
+      expense_categories: expenseCategories,
+      other_expenses: otherExpenses,
+      total_expense: financialMetrics.totalExpense,
+      predicted_yield: predictions.predictedYield,
+      yield_unit: predictions.yieldUnit,
+      predicted_price: predictions.predictedPrice,
+      price_unit: predictions.priceUnit,
+      crop_type: predictions.cropType,
+      expected_revenue: financialMetrics.expectedRevenue,
+      net_profit_loss: financialMetrics.netProfitLoss,
+      profit_loss_percentage: financialMetrics.profitLossPercentage,
+      break_even_price: financialMetrics.breakEvenPrice,
+    });
+    setHasUnsavedChanges(false);
+  }, [saveFinanceData, expenseCategories, otherExpenses, financialMetrics, predictions]);
+
+  // Reset all data
+  const handleReset = useCallback(async () => {
+    await clearFinanceData();
+    setExpenseCategories(initialExpenseCategories);
+    setOtherExpenses([]);
+    setPredictions({
+      predictedYield: null,
+      yieldUnit: 'kg',
+      predictedPrice: null,
+      priceUnit: 'per kg',
+      cropType: null,
+      isFromYieldPredictor: false,
+    });
+    setHasUnsavedChanges(false);
+  }, [clearFinanceData]);
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'profit': return 'text-green-600 dark:text-green-400';
@@ -232,17 +316,75 @@ const ExpenseAnalyzer = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="bg-gradient-primary p-3 rounded-xl">
-              <Calculator className="h-8 w-8 text-primary-foreground" />
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-3">
+              <div className="bg-gradient-primary p-3 rounded-xl">
+                <Calculator className="h-8 w-8 text-primary-foreground" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-primary">
+                  Farm Expense & Profit Analyzer
+                </h1>
+                <p className="text-muted-foreground text-lg">
+                  Calculate your exact profit or loss with AI-powered predictions
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-bold text-primary">
-                Farm Expense & Profit Analyzer
-              </h1>
-              <p className="text-muted-foreground text-lg">
-                Calculate your exact profit or loss with AI-powered predictions
-              </p>
+            
+            {/* Save/Sync Controls */}
+            <div className="flex items-center gap-3">
+              {loading && (
+                <Badge variant="outline" className="gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Loading...
+                </Badge>
+              )}
+              
+              {!loading && isAuthenticated && (
+                <>
+                  {hasUnsavedChanges ? (
+                    <Badge variant="outline" className="gap-1 border-yellow-500 text-yellow-600">
+                      <CloudOff className="h-3 w-3" />
+                      Unsaved changes
+                    </Badge>
+                  ) : lastSaved ? (
+                    <Badge variant="outline" className="gap-1 border-green-500 text-green-600">
+                      <Cloud className="h-3 w-3" />
+                      Saved
+                    </Badge>
+                  ) : null}
+                  
+                  <Button 
+                    onClick={handleSave}
+                    disabled={saving || !hasUnsavedChanges}
+                    className="gap-2"
+                  >
+                    {saving ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4" />
+                    )}
+                    Save
+                  </Button>
+                  
+                  <Button 
+                    variant="outline"
+                    onClick={handleReset}
+                    disabled={saving}
+                    className="gap-2"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Reset
+                  </Button>
+                </>
+              )}
+              
+              {!isAuthenticated && (
+                <Badge variant="outline" className="gap-1 border-yellow-500 text-yellow-600">
+                  <AlertCircle className="h-3 w-3" />
+                  Login to save data
+                </Badge>
+              )}
             </div>
           </div>
         </div>
@@ -376,7 +518,7 @@ const ExpenseAnalyzer = () => {
                   <div className="mb-4 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
                     <p className="text-sm text-green-700 dark:text-green-400 flex items-center gap-2">
                       <CheckCircle2 className="h-4 w-4" />
-                      Yield data auto-loaded from your last prediction
+                      Yield data loaded from your saved prediction
                       {predictions.cropType && <Badge variant="outline" className="ml-2">{predictions.cropType}</Badge>}
                     </p>
                   </div>
@@ -417,7 +559,10 @@ const ExpenseAnalyzer = () => {
                       </div>
                       <Input
                         value={predictions.yieldUnit}
-                        onChange={(e) => setPredictions(prev => ({ ...prev, yieldUnit: e.target.value }))}
+                        onChange={(e) => {
+                          setPredictions(prev => ({ ...prev, yieldUnit: e.target.value }));
+                          setHasUnsavedChanges(true);
+                        }}
                         className="w-24"
                         placeholder="Unit"
                         disabled
@@ -456,7 +601,10 @@ const ExpenseAnalyzer = () => {
                       </div>
                       <Input
                         value={predictions.priceUnit}
-                        onChange={(e) => setPredictions(prev => ({ ...prev, priceUnit: e.target.value }))}
+                        onChange={(e) => {
+                          setPredictions(prev => ({ ...prev, priceUnit: e.target.value }));
+                          setHasUnsavedChanges(true);
+                        }}
                         className="w-24"
                         placeholder="Unit"
                       />
@@ -631,10 +779,13 @@ const ExpenseAnalyzer = () => {
                 <div className="flex items-start gap-3">
                   <CheckCircle2 className="h-5 w-5 text-primary mt-0.5" />
                   <div className="text-sm">
-                    <p className="font-medium text-primary mb-1">Real-time Calculations</p>
+                    <p className="font-medium text-primary mb-1">
+                      {isAuthenticated ? 'Auto-Save to Cloud' : 'Login Required'}
+                    </p>
                     <p className="text-muted-foreground">
-                      All values update instantly as you edit expenses or predictions. 
-                      Use this to plan different scenarios.
+                      {isAuthenticated 
+                        ? "Your expense data is saved securely and syncs across devices. Click 'Save' to persist your changes."
+                        : "Login to save your expense data securely. Your data will persist across sessions."}
                     </p>
                   </div>
                 </div>

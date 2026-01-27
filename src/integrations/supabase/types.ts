@@ -125,6 +125,63 @@ export type Database = {
         }
         Relationships: []
       }
+      farm_finances: {
+        Row: {
+          break_even_price: number | null
+          created_at: string
+          crop_type: string | null
+          expected_revenue: number | null
+          expense_categories: Json
+          id: string
+          net_profit_loss: number | null
+          other_expenses: Json
+          predicted_price: number | null
+          predicted_yield: number | null
+          price_unit: string | null
+          profit_loss_percentage: number | null
+          total_expense: number
+          updated_at: string
+          user_id: string
+          yield_unit: string | null
+        }
+        Insert: {
+          break_even_price?: number | null
+          created_at?: string
+          crop_type?: string | null
+          expected_revenue?: number | null
+          expense_categories?: Json
+          id?: string
+          net_profit_loss?: number | null
+          other_expenses?: Json
+          predicted_price?: number | null
+          predicted_yield?: number | null
+          price_unit?: string | null
+          profit_loss_percentage?: number | null
+          total_expense?: number
+          updated_at?: string
+          user_id: string
+          yield_unit?: string | null
+        }
+        Update: {
+          break_even_price?: number | null
+          created_at?: string
+          crop_type?: string | null
+          expected_revenue?: number | null
+          expense_categories?: Json
+          id?: string
+          net_profit_loss?: number | null
+          other_expenses?: Json
+          predicted_price?: number | null
+          predicted_yield?: number | null
+          price_unit?: string | null
+          profit_loss_percentage?: number | null
+          total_expense?: number
+          updated_at?: string
+          user_id?: string
+          yield_unit?: string | null
+        }
+        Relationships: []
+      }
       historical_yields: {
         Row: {
           avg_yield: number
