@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.ml-monitor]
 verify_jwt = true
+
+[functions.farm-finance]
+verify_jwt = false
