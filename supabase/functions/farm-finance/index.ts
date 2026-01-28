@@ -59,19 +59,18 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // Verify JWT and get user ID
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+    // Verify JWT and get user ID using getUser() which properly validates the token
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
     
-    if (claimsError || !claimsData?.claims?.sub) {
-      console.error("JWT verification failed:", claimsError);
+    if (userError || !user) {
+      console.error("JWT verification failed:", userError);
       return new Response(
         JSON.stringify({ error: "Unauthorized - Invalid token" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const userId = claimsData.claims.sub;
+    const userId = user.id;
     console.log(`Request from user: ${userId}, method: ${req.method}`);
 
     // GET - Fetch user's finance data
