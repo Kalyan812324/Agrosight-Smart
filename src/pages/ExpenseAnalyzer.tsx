@@ -260,7 +260,7 @@ const ExpenseAnalyzer = () => {
 
   // Save data to database
   const handleSave = useCallback(async () => {
-    await saveFinanceData({
+    const ok = await saveFinanceData({
       expense_categories: expenseCategories,
       other_expenses: otherExpenses,
       total_expense: financialMetrics.totalExpense,
@@ -274,7 +274,7 @@ const ExpenseAnalyzer = () => {
       profit_loss_percentage: financialMetrics.profitLossPercentage,
       break_even_price: financialMetrics.breakEvenPrice,
     });
-    setHasUnsavedChanges(false);
+    if (ok) setHasUnsavedChanges(false);
   }, [saveFinanceData, expenseCategories, otherExpenses, financialMetrics, predictions]);
 
   // Reset all data

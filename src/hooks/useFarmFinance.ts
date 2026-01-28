@@ -41,6 +41,14 @@ interface FarmFinanceState {
 
 const SUPABASE_URL = "https://xllpedrhhzoljkfvkgef.supabase.co";
 
+const friendlyNetworkError = (error: unknown, action: string) => {
+  // Browsers throw TypeError("Failed to fetch") for CORS/preflight blocks and offline/network failures.
+  if (error instanceof TypeError && /failed to fetch/i.test(error.message)) {
+    return `Network error while trying to ${action}. Please check your connection and try again.`;
+  }
+  return error instanceof Error ? error.message : `Failed to ${action}.`;
+};
+
 export const useFarmFinance = () => {
   const { session, isAuthenticated } = useAuth();
   const { toast } = useToast();
@@ -88,7 +96,7 @@ export const useFarmFinance = () => {
       setState(prev => ({
         ...prev,
         loading: false,
-        error: error instanceof Error ? error.message : 'Failed to fetch data',
+        error: friendlyNetworkError(error, 'load your saved finance data'),
       }));
       return null;
     }
@@ -138,15 +146,16 @@ export const useFarmFinance = () => {
       return true;
     } catch (error) {
       console.error('Error saving finance data:', error);
+      const message = friendlyNetworkError(error, 'save your finance data');
       setState(prev => ({
         ...prev,
         saving: false,
-        error: error instanceof Error ? error.message : 'Failed to save data',
+        error: message,
       }));
       
       toast({
         title: "Save failed",
-        description: error instanceof Error ? error.message : 'Failed to save data',
+        description: message,
         variant: "destructive",
       });
       
@@ -194,7 +203,7 @@ export const useFarmFinance = () => {
       setState(prev => ({
         ...prev,
         saving: false,
-        error: error instanceof Error ? error.message : 'Failed to clear data',
+        error: friendlyNetworkError(error, 'clear your finance data'),
       }));
       
       return false;
