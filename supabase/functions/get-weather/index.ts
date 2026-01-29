@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 // Simple in-memory rate limiting (resets on function cold start)
@@ -51,25 +51,24 @@ serve(async (req) => {
       );
     }
 
-    // Verify the JWT token
+    // Verify the JWT token using getUser() for reliable validation
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_ANON_KEY')!,
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
     
-    if (claimsError || !claimsData?.claims) {
-      console.warn("Weather API: Invalid token", claimsError?.message);
+    if (userError || !user) {
+      console.warn("Weather API: Invalid token", userError?.message);
       return new Response(
         JSON.stringify({ error: "Invalid or expired session. Please log in again." }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const userId = claimsData.claims.sub;
+    const userId = user.id;
     console.log(`Weather API: Authenticated request from user ${userId}`);
 
     // Rate limiting based on user ID instead of IP for authenticated users
