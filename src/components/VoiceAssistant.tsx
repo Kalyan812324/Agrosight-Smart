@@ -193,15 +193,40 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = languageConfig[language].speechLang;
     utterance.rate = speechRate;
-    utterance.pitch = speechPitch;
+    // Higher pitch for a cuter, more feminine voice
+    utterance.pitch = Math.min(speechPitch * 1.3, 2.0);
 
-    // Try to find a voice for the selected language
-    const voices = voicesRef.current.filter(
-      voice => voice.lang.startsWith(languageConfig[language].speechLang.split('-')[0])
+    // Try to find a female voice for the selected language
+    const langCode = languageConfig[language].speechLang.split('-')[0];
+    const allLangVoices = voicesRef.current.filter(
+      voice => voice.lang.startsWith(langCode)
     );
+    
+    // Prefer female voices - check for common female voice indicators
+    const femaleVoice = allLangVoices.find(voice => {
+      const name = voice.name.toLowerCase();
+      return name.includes('female') || 
+             name.includes('woman') ||
+             name.includes('girl') ||
+             // Common English female voice names
+             name.includes('samantha') ||
+             name.includes('victoria') ||
+             name.includes('karen') ||
+             name.includes('zira') ||
+             name.includes('hazel') ||
+             name.includes('susan') ||
+             name.includes('heera') ||
+             name.includes('priya') ||
+             // Google female voices
+             (name.includes('google') && name.includes('female'));
+    });
 
-    if (voices.length > 0) {
-      utterance.voice = voices[0];
+    if (femaleVoice) {
+      utterance.voice = femaleVoice;
+    } else if (allLangVoices.length > 0) {
+      // Fallback: try to find any voice that sounds female (often later in the list are female)
+      // Or just use the first available voice with higher pitch
+      utterance.voice = allLangVoices[allLangVoices.length > 1 ? 1 : 0];
     }
 
     utterance.onend = () => {
