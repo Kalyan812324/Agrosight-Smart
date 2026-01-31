@@ -30,7 +30,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
   const [currentLanguage, setCurrentLanguage] = useState<Language>('english');
   const [conversationState, setConversationState] = useState<ConversationState>(ConversationState.IDLE);
   const [speechRate, setSpeechRate] = useState(1.0);
-  const [speechPitch, setSpeechPitch] = useState(1.0);
+  const [speechPitch, setSpeechPitch] = useState(1.4); // Higher default pitch for feminine voice
   const [inputText, setInputText] = useState('');
   const [streamingText, setStreamingText] = useState('');
   
@@ -193,40 +193,55 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = languageConfig[language].speechLang;
     utterance.rate = speechRate;
-    // Higher pitch for a cuter, more feminine voice
-    utterance.pitch = Math.min(speechPitch * 1.3, 2.0);
+    // Use higher pitch for feminine/cute voice (minimum 1.3)
+    utterance.pitch = Math.max(speechPitch, 1.3);
 
-    // Try to find a female voice for the selected language
-    const langCode = languageConfig[language].speechLang.split('-')[0];
-    const allLangVoices = voicesRef.current.filter(
-      voice => voice.lang.startsWith(langCode)
+    // Get all available voices for the language
+    const langCode = languageConfig[language].speechLang;
+    const langPrefix = langCode.split('-')[0];
+    
+    const allVoices = voicesRef.current;
+    const langVoices = allVoices.filter(
+      voice => voice.lang.startsWith(langPrefix) || voice.lang === langCode
     );
     
-    // Prefer female voices - check for common female voice indicators
-    const femaleVoice = allLangVoices.find(voice => {
+    // Female voice name patterns (comprehensive list for different browsers/OS)
+    const femalePatterns = [
+      'female', 'woman', 'girl',
+      // English female voices
+      'samantha', 'victoria', 'karen', 'zira', 'hazel', 'susan', 'fiona',
+      'moira', 'tessa', 'veena', 'kate', 'catherine', 'allison', 'ava',
+      'nicky', 'siri female', 'cortana',
+      // Indian/Telugu female voices  
+      'heera', 'priya', 'shruti', 'lekha', 'swara', 'aditi', 'raveena',
+      // Google voices
+      'google uk english female', 'google us english female',
+      // Microsoft voices
+      'microsoft zira', 'microsoft hazel', 'microsoft susan', 'microsoft heera'
+    ];
+
+    // Find a female voice
+    let selectedVoice = langVoices.find(voice => {
       const name = voice.name.toLowerCase();
-      return name.includes('female') || 
-             name.includes('woman') ||
-             name.includes('girl') ||
-             // Common English female voice names
-             name.includes('samantha') ||
-             name.includes('victoria') ||
-             name.includes('karen') ||
-             name.includes('zira') ||
-             name.includes('hazel') ||
-             name.includes('susan') ||
-             name.includes('heera') ||
-             name.includes('priya') ||
-             // Google female voices
-             (name.includes('google') && name.includes('female'));
+      return femalePatterns.some(pattern => name.includes(pattern));
     });
 
-    if (femaleVoice) {
-      utterance.voice = femaleVoice;
-    } else if (allLangVoices.length > 0) {
-      // Fallback: try to find any voice that sounds female (often later in the list are female)
-      // Or just use the first available voice with higher pitch
-      utterance.voice = allLangVoices[allLangVoices.length > 1 ? 1 : 0];
+    // If no female voice found in language-specific voices, try all voices
+    if (!selectedVoice) {
+      selectedVoice = allVoices.find(voice => {
+        const name = voice.name.toLowerCase();
+        return femalePatterns.some(pattern => name.includes(pattern));
+      });
+    }
+
+    // Fallback to language voice with high pitch
+    if (!selectedVoice && langVoices.length > 0) {
+      selectedVoice = langVoices[0];
+    }
+
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
+      console.log('Selected voice:', selectedVoice.name, 'Lang:', selectedVoice.lang);
     }
 
     utterance.onend = () => {
