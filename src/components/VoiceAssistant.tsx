@@ -34,8 +34,8 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
   const [inputText, setInputText] = useState('');
   const [streamingText, setStreamingText] = useState('');
   
-  const { messages, isLoading, streamChat, stopGeneration, clearMessages } = useAIAssistant();
-  const recognitionRef = useRef<any>(null);
+  const { messages, isLoading, error, streamChat, stopGeneration, clearMessages } = useAIAssistant();
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
   const synthRef = useRef<SpeechSynthesis | null>(null);
   const voicesRef = useRef<SpeechSynthesisVoice[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -45,13 +45,13 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
       name: 'English',
       flag: '🇺🇸',
       speechLang: 'en-US',
-      greeting: 'Hello! I am your AgroSight Ultra AI Assistant. I can help you with weather, crop predictions, market forecasts, and all agricultural data. How can I assist you?'
+      greeting: 'Hello! I am AgroSight Ultra AI - your smart farming assistant. Ask me about weather forecasts, crop yields, market prices, loan calculations, or farm expense analysis. I have access to your data for personalized insights!'
     },
     telugu: {
       name: 'తెలుగు',
       flag: '🇮🇳',
       speechLang: 'te-IN',
-      greeting: 'నమస్కారం! నేను మీ AgroSight అల్ట్రా AI అసిస్టెంట్. వాతావరణం, పంట అంచనాలు, మార్కెట్ అంచనాలు మరియు అన్ని వ్యవసాయ డేటాతో నేను మీకు సహాయం చేయగలను. నేను మీకు ఎలా సహాయం చేయగలను?'
+      greeting: 'నమస్కారం! నేను AgroSight Ultra AI - మీ స్మార్ట్ వ్యవసాయ సహాయకుడు. వాతావరణ అంచనాలు, పంట దిగుబడులు, మార్కెట్ ధరలు, రుణ లెక్కింపులు లేదా వ్యయ విశ్లేషణ గురించి అడగండి. వ్యక్తిగత సూచనల కోసం నాకు మీ డేటా యాక్సెస్ ఉంది!'
     }
   };
 
@@ -271,6 +271,13 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
       </CardHeader>
       
       <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
+        {/* Error Display */}
+        {error && (
+          <div className="bg-destructive/10 text-destructive px-4 py-2 text-sm border-b border-destructive/20">
+            {error}
+          </div>
+        )}
+
         {/* Messages Area */}
         <ScrollArea className="flex-1 p-4">
           <div className="space-y-4">
@@ -278,7 +285,32 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
               <div className="text-center text-muted-foreground p-8">
                 <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p className="text-sm">{languageConfig[currentLanguage].greeting}</p>
-                <p className="text-xs mt-2">Ask about weather, crops, market prices, loans, or your data!</p>
+                <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+                  <button
+                    onClick={() => handleUserInput("What's the weather forecast for my region?")}
+                    className="p-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
+                  >
+                    🌤️ Weather Forecast
+                  </button>
+                  <button
+                    onClick={() => handleUserInput("What are current mandi prices for rice?")}
+                    className="p-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
+                  >
+                    💰 Market Prices
+                  </button>
+                  <button
+                    onClick={() => handleUserInput("Analyze my crop yield predictions")}
+                    className="p-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
+                  >
+                    🌾 Yield Analysis
+                  </button>
+                  <button
+                    onClick={() => handleUserInput("Calculate EMI for ₹5 lakh farm loan at 7% for 5 years")}
+                    className="p-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
+                  >
+                    🏦 Loan Calculator
+                  </button>
+                </div>
               </div>
             )}
             
