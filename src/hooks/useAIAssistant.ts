@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -10,6 +11,7 @@ interface Message {
 export const useAIAssistant = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const streamChat = async (
@@ -21,6 +23,7 @@ export const useAIAssistant = () => {
     const newMessages = [...messages, { role: 'user' as const, content: userMessage, timestamp: new Date() }];
     setMessages(newMessages);
     setIsLoading(true);
+    setError(null);
 
     abortControllerRef.current = new AbortController();
 
@@ -43,8 +46,30 @@ export const useAIAssistant = () => {
         }
       );
 
+      // Handle specific error codes
+      if (response.status === 429) {
+        const errorMsg = 'Rate limit exceeded. Please wait a moment and try again.';
+        setError(errorMsg);
+        toast.error(errorMsg);
+        onDone();
+        return;
+      }
+
+      if (response.status === 402) {
+        const errorMsg = 'AI credits exhausted. Please add credits to your workspace.';
+        setError(errorMsg);
+        toast.error(errorMsg);
+        onDone();
+        return;
+      }
+
       if (!response.ok || !response.body) {
-        throw new Error('Failed to start AI stream');
+        const errorData = await response.json().catch(() => ({}));
+        const errorMsg = errorData.error || 'Failed to connect to AI assistant';
+        setError(errorMsg);
+        toast.error(errorMsg);
+        onDone();
+        return;
       }
 
       const reader = response.body.getReader();
@@ -89,16 +114,21 @@ export const useAIAssistant = () => {
       }
 
       // Add complete assistant message
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: assistantContent, 
-        timestamp: new Date() 
-      }]);
+      if (assistantContent) {
+        setMessages(prev => [...prev, { 
+          role: 'assistant', 
+          content: assistantContent, 
+          timestamp: new Date() 
+        }]);
+      }
 
       onDone();
-    } catch (error: any) {
-      if (error.name !== 'AbortError') {
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name !== 'AbortError') {
         console.error('AI streaming error:', error);
+        const errorMsg = 'Connection error. Please check your network and try again.';
+        setError(errorMsg);
+        toast.error(errorMsg);
         onDone();
       }
     } finally {
@@ -113,11 +143,13 @@ export const useAIAssistant = () => {
 
   const clearMessages = () => {
     setMessages([]);
+    setError(null);
   };
 
   return {
     messages,
     isLoading,
+    error,
     streamChat,
     stopGeneration,
     clearMessages,
