@@ -191,36 +191,67 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
     setConversationState(ConversationState.SPEAKING);
 
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = languageConfig[language].speechLang;
+    const langCode = languageConfig[language].speechLang;
+    utterance.lang = langCode;
     
     const allVoices = voicesRef.current;
-    const langCode = languageConfig[language].speechLang;
-    const langPrefix = langCode.split('-')[0];
-    
-    // Priority 1: Find Samantha voice (Apple's cute female voice)
-    let selectedVoice = allVoices.find(voice => 
-      voice.name.toLowerCase().includes('samantha')
-    );
-    
-    // Priority 2: Other cute/feminine voices in order of preference
-    if (!selectedVoice) {
+    let selectedVoice: SpeechSynthesisVoice | undefined;
+
+    if (language === 'telugu') {
+      // For Telugu: Prioritize native Telugu voices for clear pronunciation
+      const teluguVoicePatterns = [
+        'telugu',
+        'te-in',
+        'te_in',
+        'google తెలుగు',
+        'microsoft telugu',
+      ];
+      
+      // First, find any Telugu-specific voice
+      for (const pattern of teluguVoicePatterns) {
+        selectedVoice = allVoices.find(voice => 
+          voice.name.toLowerCase().includes(pattern) || 
+          voice.lang.toLowerCase().includes('te')
+        );
+        if (selectedVoice) break;
+      }
+      
+      // Fallback: Find any Indian female voice that might handle Telugu better
+      if (!selectedVoice) {
+        const indianFemalePatterns = ['priya', 'aditi', 'shruti', 'heera', 'indian female'];
+        for (const pattern of indianFemalePatterns) {
+          selectedVoice = allVoices.find(voice => 
+            voice.name.toLowerCase().includes(pattern)
+          );
+          if (selectedVoice) break;
+        }
+      }
+      
+      // Last fallback: Any voice with Indian locale
+      if (!selectedVoice) {
+        selectedVoice = allVoices.find(voice => 
+          voice.lang.includes('IN') || voice.lang.includes('in')
+        );
+      }
+
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+        // Slower rate for Telugu clarity
+        utterance.rate = speechRate * 0.85;
+        utterance.pitch = speechPitch;
+        console.log('🎙️ Telugu voice selected:', selectedVoice.name, '| Lang:', selectedVoice.lang);
+      } else {
+        // No Telugu voice found - use default with slower rate
+        utterance.rate = speechRate * 0.8;
+        utterance.pitch = speechPitch;
+        console.log('⚠️ No Telugu voice found, using default with slow rate');
+      }
+    } else {
+      // For English: Use cute feminine voice (Samantha priority)
       const priorityVoices = [
-        'samantha', // Apple - sweet, friendly
-        'karen',    // Apple Australian - warm
-        'moira',    // Apple Irish - gentle  
-        'tessa',    // Apple South African - soft
-        'victoria', // Apple - clear feminine
-        'allison',  // Apple - pleasant
-        'ava',      // Apple - natural
-        'zira',     // Microsoft - clear feminine
-        'hazel',    // Microsoft UK - warm
-        'susan',    // Microsoft UK - friendly
-        'heera',    // Microsoft Hindi - for Telugu fallback
-        'priya',    // Indian voice
-        'aditi',    // AWS Polly Indian
-        'raveena',  // AWS Polly Indian
-        'google us english female',
-        'google uk english female',
+        'samantha', 'karen', 'moira', 'tessa', 'victoria', 
+        'allison', 'ava', 'zira', 'hazel', 'susan',
+        'google us english female', 'google uk english female'
       ];
       
       for (const voiceName of priorityVoices) {
@@ -229,51 +260,43 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
         );
         if (selectedVoice) break;
       }
-    }
-    
-    // Priority 3: Any voice with 'female' in the name
-    if (!selectedVoice) {
-      selectedVoice = allVoices.find(voice => 
-        voice.name.toLowerCase().includes('female')
-      );
-    }
-    
-    // Priority 4: Language-specific voice with high pitch
-    if (!selectedVoice) {
-      const langVoices = allVoices.filter(
-        voice => voice.lang.startsWith(langPrefix) || voice.lang === langCode
-      );
-      if (langVoices.length > 0) {
-        selectedVoice = langVoices[0];
+      
+      // Fallback: Any female voice
+      if (!selectedVoice) {
+        selectedVoice = allVoices.find(voice => 
+          voice.name.toLowerCase().includes('female')
+        );
       }
-    }
+      
+      // Fallback: English voice
+      if (!selectedVoice) {
+        selectedVoice = allVoices.find(voice => 
+          voice.lang.startsWith('en')
+        );
+      }
 
-    if (selectedVoice) {
-      utterance.voice = selectedVoice;
-      console.log('🎙️ Selected voice:', selectedVoice.name, '| Lang:', selectedVoice.lang);
-      
-      // Optimize settings based on voice type
-      const isSamantha = selectedVoice.name.toLowerCase().includes('samantha');
-      const isAppleVoice = ['karen', 'moira', 'tessa', 'victoria', 'allison', 'ava'].some(
-        name => selectedVoice!.name.toLowerCase().includes(name)
-      );
-      
-      if (isSamantha) {
-        // Samantha sounds best with these settings - natural cute voice
-        utterance.rate = speechRate * 0.95; // Slightly slower for clarity
-        utterance.pitch = Math.min(speechPitch * 1.15, 1.8); // Gentle pitch boost
-      } else if (isAppleVoice) {
-        utterance.rate = speechRate;
-        utterance.pitch = Math.min(speechPitch * 1.2, 1.9);
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+        const isSamantha = selectedVoice.name.toLowerCase().includes('samantha');
+        const isAppleVoice = ['karen', 'moira', 'tessa', 'victoria', 'allison', 'ava'].some(
+          name => selectedVoice!.name.toLowerCase().includes(name)
+        );
+        
+        if (isSamantha) {
+          utterance.rate = speechRate * 0.95;
+          utterance.pitch = Math.min(speechPitch * 1.15, 1.8);
+        } else if (isAppleVoice) {
+          utterance.rate = speechRate;
+          utterance.pitch = Math.min(speechPitch * 1.2, 1.9);
+        } else {
+          utterance.rate = speechRate;
+          utterance.pitch = Math.max(speechPitch, 1.4);
+        }
+        console.log('🎙️ English voice selected:', selectedVoice.name, '| Lang:', selectedVoice.lang);
       } else {
-        // Other voices need more pitch to sound feminine
         utterance.rate = speechRate;
-        utterance.pitch = Math.max(speechPitch, 1.4);
+        utterance.pitch = 1.5;
       }
-    } else {
-      // No voice found, use defaults with high pitch
-      utterance.rate = speechRate;
-      utterance.pitch = 1.5;
     }
 
     utterance.onend = () => {
