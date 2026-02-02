@@ -192,56 +192,88 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = languageConfig[language].speechLang;
-    utterance.rate = speechRate;
-    // Use higher pitch for feminine/cute voice (minimum 1.3)
-    utterance.pitch = Math.max(speechPitch, 1.3);
-
-    // Get all available voices for the language
+    
+    const allVoices = voicesRef.current;
     const langCode = languageConfig[language].speechLang;
     const langPrefix = langCode.split('-')[0];
     
-    const allVoices = voicesRef.current;
-    const langVoices = allVoices.filter(
-      voice => voice.lang.startsWith(langPrefix) || voice.lang === langCode
+    // Priority 1: Find Samantha voice (Apple's cute female voice)
+    let selectedVoice = allVoices.find(voice => 
+      voice.name.toLowerCase().includes('samantha')
     );
     
-    // Female voice name patterns (comprehensive list for different browsers/OS)
-    const femalePatterns = [
-      'female', 'woman', 'girl',
-      // English female voices
-      'samantha', 'victoria', 'karen', 'zira', 'hazel', 'susan', 'fiona',
-      'moira', 'tessa', 'veena', 'kate', 'catherine', 'allison', 'ava',
-      'nicky', 'siri female', 'cortana',
-      // Indian/Telugu female voices  
-      'heera', 'priya', 'shruti', 'lekha', 'swara', 'aditi', 'raveena',
-      // Google voices
-      'google uk english female', 'google us english female',
-      // Microsoft voices
-      'microsoft zira', 'microsoft hazel', 'microsoft susan', 'microsoft heera'
-    ];
-
-    // Find a female voice
-    let selectedVoice = langVoices.find(voice => {
-      const name = voice.name.toLowerCase();
-      return femalePatterns.some(pattern => name.includes(pattern));
-    });
-
-    // If no female voice found in language-specific voices, try all voices
+    // Priority 2: Other cute/feminine voices in order of preference
     if (!selectedVoice) {
-      selectedVoice = allVoices.find(voice => {
-        const name = voice.name.toLowerCase();
-        return femalePatterns.some(pattern => name.includes(pattern));
-      });
+      const priorityVoices = [
+        'samantha', // Apple - sweet, friendly
+        'karen',    // Apple Australian - warm
+        'moira',    // Apple Irish - gentle  
+        'tessa',    // Apple South African - soft
+        'victoria', // Apple - clear feminine
+        'allison',  // Apple - pleasant
+        'ava',      // Apple - natural
+        'zira',     // Microsoft - clear feminine
+        'hazel',    // Microsoft UK - warm
+        'susan',    // Microsoft UK - friendly
+        'heera',    // Microsoft Hindi - for Telugu fallback
+        'priya',    // Indian voice
+        'aditi',    // AWS Polly Indian
+        'raveena',  // AWS Polly Indian
+        'google us english female',
+        'google uk english female',
+      ];
+      
+      for (const voiceName of priorityVoices) {
+        selectedVoice = allVoices.find(voice => 
+          voice.name.toLowerCase().includes(voiceName)
+        );
+        if (selectedVoice) break;
+      }
     }
-
-    // Fallback to language voice with high pitch
-    if (!selectedVoice && langVoices.length > 0) {
-      selectedVoice = langVoices[0];
+    
+    // Priority 3: Any voice with 'female' in the name
+    if (!selectedVoice) {
+      selectedVoice = allVoices.find(voice => 
+        voice.name.toLowerCase().includes('female')
+      );
+    }
+    
+    // Priority 4: Language-specific voice with high pitch
+    if (!selectedVoice) {
+      const langVoices = allVoices.filter(
+        voice => voice.lang.startsWith(langPrefix) || voice.lang === langCode
+      );
+      if (langVoices.length > 0) {
+        selectedVoice = langVoices[0];
+      }
     }
 
     if (selectedVoice) {
       utterance.voice = selectedVoice;
-      console.log('Selected voice:', selectedVoice.name, 'Lang:', selectedVoice.lang);
+      console.log('🎙️ Selected voice:', selectedVoice.name, '| Lang:', selectedVoice.lang);
+      
+      // Optimize settings based on voice type
+      const isSamantha = selectedVoice.name.toLowerCase().includes('samantha');
+      const isAppleVoice = ['karen', 'moira', 'tessa', 'victoria', 'allison', 'ava'].some(
+        name => selectedVoice!.name.toLowerCase().includes(name)
+      );
+      
+      if (isSamantha) {
+        // Samantha sounds best with these settings - natural cute voice
+        utterance.rate = speechRate * 0.95; // Slightly slower for clarity
+        utterance.pitch = Math.min(speechPitch * 1.15, 1.8); // Gentle pitch boost
+      } else if (isAppleVoice) {
+        utterance.rate = speechRate;
+        utterance.pitch = Math.min(speechPitch * 1.2, 1.9);
+      } else {
+        // Other voices need more pitch to sound feminine
+        utterance.rate = speechRate;
+        utterance.pitch = Math.max(speechPitch, 1.4);
+      }
+    } else {
+      // No voice found, use defaults with high pitch
+      utterance.rate = speechRate;
+      utterance.pitch = 1.5;
     }
 
     utterance.onend = () => {
