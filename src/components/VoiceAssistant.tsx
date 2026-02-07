@@ -181,135 +181,82 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
     }
   };
 
-  const speakText = async (text: string, language: Language) => {
-    if (!synthRef.current || isMuted) return;
+  const speakWithElevenLabs = async (text: string, language: Language) => {
+    try {
+      setIsSpeaking(true);
+      setConversationState(ConversationState.SPEAKING);
 
-    // Cancel any ongoing speech
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ text: text.slice(0, 5000), language }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`TTS failed: ${response.status}`);
+      }
+
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      
+      audio.onended = () => {
+        setIsSpeaking(false);
+        setConversationState(ConversationState.IDLE);
+        URL.revokeObjectURL(audioUrl);
+      };
+      audio.onerror = () => {
+        setIsSpeaking(false);
+        setConversationState(ConversationState.IDLE);
+        URL.revokeObjectURL(audioUrl);
+      };
+
+      await audio.play();
+    } catch (error) {
+      console.error('ElevenLabs TTS error, falling back to browser TTS:', error);
+      speakWithBrowser(text, language);
+    }
+  };
+
+  const speakWithBrowser = (text: string, language: Language) => {
+    if (!synthRef.current) return;
     synthRef.current.cancel();
     
     setIsSpeaking(true);
     setConversationState(ConversationState.SPEAKING);
 
     const utterance = new SpeechSynthesisUtterance(text);
-    const langCode = languageConfig[language].speechLang;
-    utterance.lang = langCode;
-    
+    utterance.lang = languageConfig[language].speechLang;
+    utterance.rate = speechRate;
+    utterance.pitch = speechPitch;
+
     const allVoices = voicesRef.current;
-    let selectedVoice: SpeechSynthesisVoice | undefined;
-
-    if (language === 'telugu') {
-      // For Telugu: Prioritize native Telugu voices for clear pronunciation
-      const teluguVoicePatterns = [
-        'telugu',
-        'te-in',
-        'te_in',
-        'google తెలుగు',
-        'microsoft telugu',
-      ];
-      
-      // First, find any Telugu-specific voice
-      for (const pattern of teluguVoicePatterns) {
-        selectedVoice = allVoices.find(voice => 
-          voice.name.toLowerCase().includes(pattern) || 
-          voice.lang.toLowerCase().includes('te')
-        );
-        if (selectedVoice) break;
-      }
-      
-      // Fallback: Find any Indian female voice that might handle Telugu better
-      if (!selectedVoice) {
-        const indianFemalePatterns = ['priya', 'aditi', 'shruti', 'heera', 'indian female'];
-        for (const pattern of indianFemalePatterns) {
-          selectedVoice = allVoices.find(voice => 
-            voice.name.toLowerCase().includes(pattern)
-          );
-          if (selectedVoice) break;
-        }
-      }
-      
-      // Last fallback: Any voice with Indian locale
-      if (!selectedVoice) {
-        selectedVoice = allVoices.find(voice => 
-          voice.lang.includes('IN') || voice.lang.includes('in')
-        );
-      }
-
-      if (selectedVoice) {
-        utterance.voice = selectedVoice;
-        // Slower rate for Telugu clarity
-        utterance.rate = speechRate * 0.85;
-        utterance.pitch = speechPitch;
-        console.log('🎙️ Telugu voice selected:', selectedVoice.name, '| Lang:', selectedVoice.lang);
-      } else {
-        // No Telugu voice found - use default with slower rate
-        utterance.rate = speechRate * 0.8;
-        utterance.pitch = speechPitch;
-        console.log('⚠️ No Telugu voice found, using default with slow rate');
-      }
+    if (language === 'english') {
+      const femaleVoice = allVoices.find(v => 
+        ['samantha', 'karen', 'allison', 'zira'].some(n => v.name.toLowerCase().includes(n))
+      ) || allVoices.find(v => v.lang.startsWith('en'));
+      if (femaleVoice) utterance.voice = femaleVoice;
     } else {
-      // For English: Use cute feminine voice (Samantha priority)
-      const priorityVoices = [
-        'samantha', 'karen', 'moira', 'tessa', 'victoria', 
-        'allison', 'ava', 'zira', 'hazel', 'susan',
-        'google us english female', 'google uk english female'
-      ];
-      
-      for (const voiceName of priorityVoices) {
-        selectedVoice = allVoices.find(voice => 
-          voice.name.toLowerCase().includes(voiceName)
-        );
-        if (selectedVoice) break;
-      }
-      
-      // Fallback: Any female voice
-      if (!selectedVoice) {
-        selectedVoice = allVoices.find(voice => 
-          voice.name.toLowerCase().includes('female')
-        );
-      }
-      
-      // Fallback: English voice
-      if (!selectedVoice) {
-        selectedVoice = allVoices.find(voice => 
-          voice.lang.startsWith('en')
-        );
-      }
-
-      if (selectedVoice) {
-        utterance.voice = selectedVoice;
-        const isSamantha = selectedVoice.name.toLowerCase().includes('samantha');
-        const isAppleVoice = ['karen', 'moira', 'tessa', 'victoria', 'allison', 'ava'].some(
-          name => selectedVoice!.name.toLowerCase().includes(name)
-        );
-        
-        if (isSamantha) {
-          utterance.rate = speechRate * 0.95;
-          utterance.pitch = Math.min(speechPitch * 1.15, 1.8);
-        } else if (isAppleVoice) {
-          utterance.rate = speechRate;
-          utterance.pitch = Math.min(speechPitch * 1.2, 1.9);
-        } else {
-          utterance.rate = speechRate;
-          utterance.pitch = Math.max(speechPitch, 1.4);
-        }
-        console.log('🎙️ English voice selected:', selectedVoice.name, '| Lang:', selectedVoice.lang);
-      } else {
-        utterance.rate = speechRate;
-        utterance.pitch = 1.5;
-      }
+      const teluguVoice = allVoices.find(v => v.lang.toLowerCase().includes('te'));
+      if (teluguVoice) utterance.voice = teluguVoice;
     }
 
-    utterance.onend = () => {
-      setIsSpeaking(false);
-      setConversationState(ConversationState.IDLE);
-    };
-
-    utterance.onerror = () => {
-      setIsSpeaking(false);
-      setConversationState(ConversationState.IDLE);
-    };
-
+    utterance.onend = () => { setIsSpeaking(false); setConversationState(ConversationState.IDLE); };
+    utterance.onerror = () => { setIsSpeaking(false); setConversationState(ConversationState.IDLE); };
     synthRef.current.speak(utterance);
+  };
+
+  const speakText = async (text: string, language: Language) => {
+    if (isMuted) return;
+    // Always try ElevenLabs first for high-quality multilingual TTS
+    await speakWithElevenLabs(text, language);
   };
 
   const getStateIcon = () => {
