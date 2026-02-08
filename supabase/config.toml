@@ -7,7 +7,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.get-weather]
-verify_jwt = false  # JWT verification handled in function code for better error messages
+verify_jwt = false
 
 [functions.predict-yield]
 verify_jwt = false
@@ -28,4 +28,7 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.elevenlabs-tts]
+verify_jwt = false
+
+[functions.google-tts]
 verify_jwt = false
