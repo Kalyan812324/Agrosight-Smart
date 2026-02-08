@@ -181,49 +181,8 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
     }
   };
 
-  const speakWithElevenLabs = async (text: string, language: Language) => {
-    try {
-      setIsSpeaking(true);
-      setConversationState(ConversationState.SPEAKING);
-
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({ text: text.slice(0, 5000), language }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`TTS failed: ${response.status}`);
-      }
-
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-      
-      audio.onended = () => {
-        setIsSpeaking(false);
-        setConversationState(ConversationState.IDLE);
-        URL.revokeObjectURL(audioUrl);
-      };
-      audio.onerror = () => {
-        setIsSpeaking(false);
-        setConversationState(ConversationState.IDLE);
-        URL.revokeObjectURL(audioUrl);
-      };
-
-      await audio.play();
-    } catch (error) {
-      console.error('ElevenLabs TTS error, falling back to browser TTS:', error);
-      speakWithBrowser(text, language);
-    }
-  };
+  // Use browser TTS directly since ElevenLabs quota is exhausted
+  // This provides the ultimate cute female Telugu/English voice experience
 
   // ULTIMATE FEMALE VOICE SELECTION - Beautiful cute 20-year-old South Indian goddess voice
   const pickFemaleVoice = (language: Language): SpeechSynthesisVoice | null => {
@@ -410,10 +369,10 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
     synthRef.current.speak(utterance);
   };
 
-  const speakText = async (text: string, language: Language) => {
+  const speakText = (text: string, language: Language) => {
     if (isMuted) return;
-    // Always try ElevenLabs first for high-quality multilingual TTS
-    await speakWithElevenLabs(text, language);
+    // Use browser TTS directly with ultimate cute female voice
+    speakWithBrowser(text, language);
   };
 
   const getStateIcon = () => {
