@@ -29,9 +29,9 @@ serve(async (req) => {
       );
     }
 
-    // Lily (pFZP5JQG7iQjIQuC4Bku) - soft, warm female voice
-    // Tuned for: gentle, romantic, breathy-but-controlled Telugu narration
-    const voiceId = "pFZP5JQG7iQjIQuC4Bku";
+    // Jessica (cgSgspJ2msm6clMCkdW9) - young, sweet, cute female voice
+    // Best for: clear, warm, expressive narration in Telugu & English
+    const voiceId = "cgSgspJ2msm6clMCkdW9";
 
     const isTeluguMode = language === "telugu";
 
@@ -47,11 +47,11 @@ serve(async (req) => {
           text,
           model_id: "eleven_multilingual_v2",
           voice_settings: {
-            stability: isTeluguMode ? 0.75 : 0.65,
-            similarity_boost: 0.85,
-            style: isTeluguMode ? 0.3 : 0.4,
+            stability: isTeluguMode ? 0.70 : 0.60,
+            similarity_boost: 0.90,
+            style: isTeluguMode ? 0.35 : 0.45,
             use_speaker_boost: true,
-            speed: isTeluguMode ? 0.8 : 0.95,
+            speed: isTeluguMode ? 0.78 : 0.92,
           },
         }),
       }

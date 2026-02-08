@@ -29,8 +29,8 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
   const [isMuted, setIsMuted] = useState(false);
   const [currentLanguage, setCurrentLanguage] = useState<Language>('english');
   const [conversationState, setConversationState] = useState<ConversationState>(ConversationState.IDLE);
-  const [speechRate, setSpeechRate] = useState(0.85);
-  const [speechPitch, setSpeechPitch] = useState(1.15); // Soft, medium-pitch feminine voice
+  const [speechRate, setSpeechRate] = useState(0.82);
+  const [speechPitch, setSpeechPitch] = useState(1.25); // Cute, sweet feminine pitch
   const [inputText, setInputText] = useState('');
   const [streamingText, setStreamingText] = useState('');
   
@@ -225,6 +225,30 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
     }
   };
 
+  const pickFemaleVoice = (language: Language): SpeechSynthesisVoice | null => {
+    const allVoices = voicesRef.current;
+    // Blacklist known male voice keywords
+    const maleNames = ['david', 'james', 'daniel', 'mark', 'alex', 'fred', 'thomas', 'guy', 'rishi', 'aaron', 'albert', 'bruce', 'charles', 'gordon', 'jacques', 'jorge', 'lee', 'luca', 'oliver', 'reed', 'rocko', 'sandy', 'shelley', 'tom', 'grandpa', 'eddy', 'ralph'];
+    const isFemale = (v: SpeechSynthesisVoice) => !maleNames.some(n => v.name.toLowerCase().includes(n));
+
+    if (language === 'english') {
+      // Priority: Samantha > Karen > Allison > Zira > Victoria > Fiona > any female en voice
+      const preferred = ['samantha', 'karen', 'allison', 'zira', 'victoria', 'fiona', 'moira', 'tessa', 'veena'];
+      for (const name of preferred) {
+        const v = allVoices.find(v => v.name.toLowerCase().includes(name) && v.lang.startsWith('en'));
+        if (v) return v;
+      }
+      // Fallback: any English voice that's not in the male blacklist
+      return allVoices.find(v => v.lang.startsWith('en') && isFemale(v)) || null;
+    } else {
+      // Telugu: find any Telugu female voice
+      const teluguVoice = allVoices.find(v => v.lang.toLowerCase().includes('te') && isFemale(v));
+      if (teluguVoice) return teluguVoice;
+      // Fallback: any Hindi/Indian female voice for better desi pronunciation
+      return allVoices.find(v => (v.lang.includes('hi') || v.lang.includes('IN')) && isFemale(v)) || null;
+    }
+  };
+
   const speakWithBrowser = (text: string, language: Language) => {
     if (!synthRef.current) return;
     synthRef.current.cancel();
@@ -237,16 +261,8 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
     utterance.rate = speechRate;
     utterance.pitch = speechPitch;
 
-    const allVoices = voicesRef.current;
-    if (language === 'english') {
-      const femaleVoice = allVoices.find(v => 
-        ['samantha', 'karen', 'allison', 'zira'].some(n => v.name.toLowerCase().includes(n))
-      ) || allVoices.find(v => v.lang.startsWith('en'));
-      if (femaleVoice) utterance.voice = femaleVoice;
-    } else {
-      const teluguVoice = allVoices.find(v => v.lang.toLowerCase().includes('te'));
-      if (teluguVoice) utterance.voice = teluguVoice;
-    }
+    const femaleVoice = pickFemaleVoice(language);
+    if (femaleVoice) utterance.voice = femaleVoice;
 
     utterance.onend = () => { setIsSpeaking(false); setConversationState(ConversationState.IDLE); };
     utterance.onerror = () => { setIsSpeaking(false); setConversationState(ConversationState.IDLE); };
