@@ -181,8 +181,66 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
     }
   };
 
-  // Use browser TTS directly since ElevenLabs quota is exhausted
-  // This provides the ultimate cute female Telugu/English voice experience
+  // FREE GOOGLE TTS - Perfect Telugu pronunciation with natural female voice
+  const speakWithGoogleTTS = async (text: string, language: Language) => {
+    try {
+      setIsSpeaking(true);
+      setConversationState(ConversationState.SPEAKING);
+
+      console.log(`Using Google TTS for ${language}: "${text.slice(0, 50)}..."`);
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-tts`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ text, language }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Google TTS failed:', response.status, errorText);
+        throw new Error(`Google TTS failed: ${response.status}`);
+      }
+
+      const audioBlob = await response.blob();
+      
+      if (audioBlob.size === 0) {
+        throw new Error('Empty audio response');
+      }
+
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      
+      // Slightly faster playback for natural flow
+      audio.playbackRate = language === 'telugu' ? 1.0 : 1.05;
+      
+      audio.onended = () => {
+        setIsSpeaking(false);
+        setConversationState(ConversationState.IDLE);
+        URL.revokeObjectURL(audioUrl);
+      };
+      
+      audio.onerror = (e) => {
+        console.error('Audio playback error:', e);
+        setIsSpeaking(false);
+        setConversationState(ConversationState.IDLE);
+        URL.revokeObjectURL(audioUrl);
+      };
+
+      await audio.play();
+      console.log('Google TTS audio playing successfully');
+    } catch (error) {
+      console.error('Google TTS error, falling back to browser TTS:', error);
+      // Fallback to browser TTS if Google fails
+      speakWithBrowser(text, language);
+    }
+  };
 
   // ULTIMATE FEMALE VOICE SELECTION - Beautiful cute 20-year-old South Indian goddess voice
   const pickFemaleVoice = (language: Language): SpeechSynthesisVoice | null => {
@@ -369,10 +427,11 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
     synthRef.current.speak(utterance);
   };
 
-  const speakText = (text: string, language: Language) => {
+  const speakText = async (text: string, language: Language) => {
     if (isMuted) return;
-    // Use browser TTS directly with ultimate cute female voice
-    speakWithBrowser(text, language);
+    // Use FREE Google TTS for perfect Telugu pronunciation
+    // Falls back to browser TTS if Google TTS fails
+    await speakWithGoogleTTS(text, language);
   };
 
   const getStateIcon = () => {
