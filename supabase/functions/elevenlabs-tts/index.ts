@@ -29,9 +29,11 @@ serve(async (req) => {
       );
     }
 
-    // Voice selection based on language
-    // Sarah (EXAVITQu4vr4xnSDxMaL) - great multilingual voice for Telugu & English
-    const voiceId = "EXAVITQu4vr4xnSDxMaL";
+    // Lily (pFZP5JQG7iQjIQuC4Bku) - soft, warm female voice
+    // Tuned for: gentle, romantic, breathy-but-controlled Telugu narration
+    const voiceId = "pFZP5JQG7iQjIQuC4Bku";
+
+    const isTeluguMode = language === "telugu";
 
     const response = await fetch(
       `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
@@ -45,11 +47,11 @@ serve(async (req) => {
           text,
           model_id: "eleven_multilingual_v2",
           voice_settings: {
-            stability: 0.6,
-            similarity_boost: 0.75,
-            style: 0.4,
+            stability: isTeluguMode ? 0.75 : 0.65,
+            similarity_boost: 0.85,
+            style: isTeluguMode ? 0.3 : 0.4,
             use_speaker_boost: true,
-            speed: language === "telugu" ? 0.9 : 1.0,
+            speed: isTeluguMode ? 0.8 : 0.95,
           },
         }),
       }

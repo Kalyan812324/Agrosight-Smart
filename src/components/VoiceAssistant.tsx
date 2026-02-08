@@ -29,8 +29,8 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
   const [isMuted, setIsMuted] = useState(false);
   const [currentLanguage, setCurrentLanguage] = useState<Language>('english');
   const [conversationState, setConversationState] = useState<ConversationState>(ConversationState.IDLE);
-  const [speechRate, setSpeechRate] = useState(1.0);
-  const [speechPitch, setSpeechPitch] = useState(1.4); // Higher default pitch for feminine voice
+  const [speechRate, setSpeechRate] = useState(0.85);
+  const [speechPitch, setSpeechPitch] = useState(1.15); // Soft, medium-pitch feminine voice
   const [inputText, setInputText] = useState('');
   const [streamingText, setStreamingText] = useState('');
   
