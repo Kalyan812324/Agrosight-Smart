@@ -225,82 +225,146 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
     }
   };
 
+  // ULTIMATE FEMALE VOICE SELECTION - Beautiful cute 20-year-old South Indian goddess voice
   const pickFemaleVoice = (language: Language): SpeechSynthesisVoice | null => {
     const allVoices = voicesRef.current;
     
-    // Comprehensive male voice blacklist — block ALL known male voices across all platforms
-    const maleNames = [
+    // Console log available voices for debugging
+    console.log('Available voices:', allVoices.map(v => `${v.name} (${v.lang})`));
+    
+    // ABSOLUTE MALE VOICE BLACKLIST - Block every possible male voice name
+    const malePatterns = [
+      // Common English male names
       'david', 'james', 'daniel', 'mark', 'alex', 'fred', 'thomas', 'guy', 'rishi',
       'aaron', 'albert', 'bruce', 'charles', 'gordon', 'jacques', 'jorge', 'lee',
       'luca', 'oliver', 'reed', 'rocko', 'sandy', 'shelley', 'tom', 'grandpa',
-      'eddy', 'ralph', 'junior', 'evan', 'lekha', 'neel', 'ravi', 'kumar',
-      'martin', 'arthur', 'grandma', 'trinoids', 'organ', 'superstar', 'zarvox',
-      'bahh', 'boing', 'bubbles', 'cellos', 'whisper', 'wobble', 'bad news',
-      'good news', 'bells', 'deranged', 'hysterical', 'ralph', 'albert',
-      'male', 'masculine', 'man', 'boy', 'sir', 'mr.', 'gentleman',
-      'aaron', 'adam', 'adrian', 'andrew', 'anthony', 'benjamin', 'brian',
-      'caleb', 'carl', 'chris', 'christopher', 'craig', 'darren', 'derek',
-      'dmitri', 'dominic', 'donald', 'douglas', 'edward', 'elliott', 'eric',
-      'eugene', 'felipe', 'frank', 'gabriel', 'george', 'gerald', 'grant',
-      'gregory', 'hans', 'harry', 'henry', 'hugo', 'ian', 'ivan', 'jack',
-      'jason', 'jeff', 'jerome', 'joel', 'john', 'jonathan', 'joseph',
-      'juan', 'keith', 'kenneth', 'kevin', 'larry', 'leonard', 'logan',
-      'louis', 'lucas', 'luis', 'marcus', 'mario', 'matthew', 'michael',
-      'nathan', 'neil', 'nicholas', 'oscar', 'patrick', 'paul', 'peter',
-      'philip', 'rafael', 'raymond', 'richard', 'robert', 'roger', 'ronald',
-      'ryan', 'samuel', 'scott', 'sean', 'simon', 'stephen', 'steven',
-      'stuart', 'theodore', 'timothy', 'tony', 'trevor', 'tyler', 'victor',
-      'vincent', 'walter', 'wayne', 'william', 'zachary'
+      'eddy', 'ralph', 'junior', 'evan', 'neel', 'ravi', 'kumar', 'martin', 'arthur',
+      // Gender indicators
+      'male', 'masculine', 'man', 'boy', 'sir', 'mr', 'gentleman', 'guy', 'dude',
+      // Extended male names A-Z
+      'adam', 'adrian', 'andrew', 'anthony', 'benjamin', 'brian', 'caleb', 'carl',
+      'chris', 'christopher', 'craig', 'darren', 'derek', 'dmitri', 'dominic',
+      'donald', 'douglas', 'edward', 'elliott', 'eric', 'eugene', 'felipe', 'frank',
+      'gabriel', 'george', 'gerald', 'grant', 'gregory', 'hans', 'harry', 'henry',
+      'hugo', 'ian', 'ivan', 'jack', 'jason', 'jeff', 'jerome', 'joel', 'john',
+      'jonathan', 'joseph', 'juan', 'keith', 'kenneth', 'kevin', 'larry', 'leonard',
+      'logan', 'louis', 'lucas', 'luis', 'marcus', 'mario', 'matthew', 'michael',
+      'nathan', 'neil', 'nicholas', 'oscar', 'patrick', 'paul', 'peter', 'philip',
+      'rafael', 'raymond', 'richard', 'robert', 'roger', 'ronald', 'ryan', 'samuel',
+      'scott', 'sean', 'simon', 'stephen', 'steven', 'stuart', 'theodore', 'timothy',
+      'tony', 'trevor', 'tyler', 'victor', 'vincent', 'walter', 'wayne', 'william',
+      'zachary', 'albert', 'rocko', 'reed', 'bad news', 'good news', 'zarvox',
+      // Indian male names
+      'suresh', 'mahesh', 'ganesh', 'ramesh', 'naresh', 'rajesh', 'dinesh', 'mukesh',
+      'rakesh', 'anil', 'sunil', 'vijay', 'ajay', 'sanjay', 'vinay', 'akash', 'vikram',
+      'deepak', 'prakash', 'mohan', 'sohan', 'rohan', 'kiran', 'arun', 'varun', 'tarun',
+      'naveen', 'praveen', 'sravan', 'krishna', 'venkat', 'srini', 'raju', 'babu',
+      // System/novelty voices to block
+      'trinoids', 'organ', 'superstar', 'zarvox', 'bahh', 'boing', 'bubbles', 'cellos',
+      'whisper', 'wobble', 'bells', 'deranged', 'hysterical', 'grandma', 'grandpa'
     ];
     
-    // Known female voice whitelist — prefer these explicitly
-    const femaleWhitelist = [
-      'samantha', 'karen', 'allison', 'zira', 'victoria', 'fiona', 'moira',
-      'tessa', 'veena', 'lekha', 'priya', 'anjali', 'neerja', 'riya',
-      'meera', 'siri', 'google', 'microsoft', 'female', 'woman', 'girl',
-      'lady', 'kate', 'catherine', 'emma', 'emily', 'susan', 'linda',
-      'sarah', 'alice', 'anna', 'joana', 'ioana', 'paulina', 'helena',
-      'sara', 'laura', 'ellen', 'monica', 'lucia', 'heera', 'kalpana'
+    // BEAUTIFUL FEMALE VOICE WHITELIST - Prefer these gorgeous voices
+    const femaleGoddessVoices = [
+      // Premium Indian female voices (South Indian goddess quality)
+      'priya', 'anjali', 'neerja', 'riya', 'meera', 'heera', 'kalpana', 'veena',
+      'kavya', 'divya', 'shreya', 'tanvi', 'pooja', 'neha', 'swati', 'rani', 'devi',
+      'lakshmi', 'saraswati', 'gayatri', 'ananya', 'aditi', 'isha', 'aishwarya',
+      // Premium English female voices
+      'samantha', 'karen', 'allison', 'zira', 'victoria', 'fiona', 'moira', 'tessa',
+      'kate', 'catherine', 'emma', 'emily', 'susan', 'linda', 'sarah', 'alice',
+      'anna', 'joana', 'ioana', 'paulina', 'helena', 'sara', 'laura', 'ellen',
+      'monica', 'lucia', 'siri', 'cortana', 'alexa',
+      // Gender indicators for female
+      'female', 'woman', 'girl', 'lady', 'feminine', 'miss', 'ms'
     ];
     
-    const isDefinitelyMale = (v: SpeechSynthesisVoice) => 
-      maleNames.some(n => v.name.toLowerCase().includes(n));
+    // Check if voice name contains ANY male pattern
+    const isMaleVoice = (voice: SpeechSynthesisVoice): boolean => {
+      const nameLower = voice.name.toLowerCase();
+      return malePatterns.some(pattern => nameLower.includes(pattern));
+    };
     
-    const isLikelyFemale = (v: SpeechSynthesisVoice) => 
-      femaleWhitelist.some(n => v.name.toLowerCase().includes(n));
+    // Check if voice is a beautiful female voice
+    const isFemaleGoddess = (voice: SpeechSynthesisVoice): boolean => {
+      const nameLower = voice.name.toLowerCase();
+      return femaleGoddessVoices.some(pattern => nameLower.includes(pattern));
+    };
     
-    // Strict filter: prefer whitelisted female, then non-blacklisted
-    const isSafe = (v: SpeechSynthesisVoice) => !isDefinitelyMale(v);
-
-    if (language === 'english') {
-      // First: try whitelisted female English voices in priority order
-      const preferred = ['samantha', 'karen', 'allison', 'zira', 'victoria', 'fiona', 'moira', 'tessa', 'veena', 'kate', 'emma', 'sarah'];
-      for (const name of preferred) {
-        const v = allVoices.find(v => v.name.toLowerCase().includes(name) && v.lang.startsWith('en') && isSafe(v));
-        if (v) return v;
+    // STRICT FILTER: Only allow voices that are NOT male
+    const safeVoices = allVoices.filter(v => !isMaleVoice(v));
+    console.log('Safe (non-male) voices:', safeVoices.map(v => `${v.name} (${v.lang})`));
+    
+    if (language === 'telugu') {
+      // PRIORITY 1: Telugu female goddess voices
+      const teluguGoddess = safeVoices.find(v => 
+        (v.lang.toLowerCase().includes('te') || v.lang === 'te-IN') && isFemaleGoddess(v)
+      );
+      if (teluguGoddess) {
+        console.log('Selected Telugu goddess voice:', teluguGoddess.name);
+        return teluguGoddess;
       }
-      // Then: any whitelisted female English voice
-      const femalEn = allVoices.find(v => v.lang.startsWith('en') && isLikelyFemale(v) && isSafe(v));
-      if (femalEn) return femalEn;
-      // Last resort: any non-male English voice
-      return allVoices.find(v => v.lang.startsWith('en') && isSafe(v)) || null;
+      
+      // PRIORITY 2: Any Telugu female voice (non-male)
+      const teluguFemale = safeVoices.find(v => 
+        v.lang.toLowerCase().includes('te') || v.lang === 'te-IN'
+      );
+      if (teluguFemale) {
+        console.log('Selected Telugu female voice:', teluguFemale.name);
+        return teluguFemale;
+      }
+      
+      // PRIORITY 3: Hindi/Indian female goddess voice (for natural desi pronunciation)
+      const hindiGoddess = safeVoices.find(v => 
+        (v.lang.includes('hi') || v.lang.includes('IN')) && isFemaleGoddess(v)
+      );
+      if (hindiGoddess) {
+        console.log('Selected Hindi goddess voice:', hindiGoddess.name);
+        return hindiGoddess;
+      }
+      
+      // PRIORITY 4: Any Indian female voice
+      const indianFemale = safeVoices.find(v => 
+        (v.lang.includes('hi') || v.lang.includes('IN') || v.lang.includes('ta') || v.lang.includes('kn'))
+      );
+      if (indianFemale) {
+        console.log('Selected Indian female voice:', indianFemale.name);
+        return indianFemale;
+      }
+      
+      // PRIORITY 5: Any English female goddess for fallback (still sounds cute)
+      const englishGoddess = safeVoices.find(v => 
+        v.lang.startsWith('en') && isFemaleGoddess(v)
+      );
+      if (englishGoddess) {
+        console.log('Selected English goddess fallback:', englishGoddess.name);
+        return englishGoddess;
+      }
+      
+      // LAST RESORT: First safe voice available
+      console.log('Using first safe voice as fallback:', safeVoices[0]?.name);
+      return safeVoices[0] || null;
     } else {
-      // Telugu: prioritize known female Telugu/Indian voices
-      const teluguFemalePreferred = ['priya', 'anjali', 'neerja', 'riya', 'meera', 'lekha', 'heera', 'kalpana', 'veena'];
-      for (const name of teluguFemalePreferred) {
-        const v = allVoices.find(v => v.name.toLowerCase().includes(name) && (v.lang.toLowerCase().includes('te') || v.lang.includes('IN')));
-        if (v) return v;
+      // English mode
+      // PRIORITY 1: English female goddess voices
+      const englishGoddess = safeVoices.find(v => 
+        v.lang.startsWith('en') && isFemaleGoddess(v)
+      );
+      if (englishGoddess) {
+        console.log('Selected English goddess voice:', englishGoddess.name);
+        return englishGoddess;
       }
-      // Any female Telugu voice
-      const teluguFemale = allVoices.find(v => v.lang.toLowerCase().includes('te') && isSafe(v) && isLikelyFemale(v));
-      if (teluguFemale) return teluguFemale;
-      // Any non-male Telugu voice
-      const teluguSafe = allVoices.find(v => v.lang.toLowerCase().includes('te') && isSafe(v));
-      if (teluguSafe) return teluguSafe;
-      // Fallback: female Hindi/Indian voice for natural desi pronunciation
-      const hindiFemale = allVoices.find(v => (v.lang.includes('hi') || v.lang.includes('IN')) && isSafe(v) && isLikelyFemale(v));
-      if (hindiFemale) return hindiFemale;
-      return allVoices.find(v => (v.lang.includes('hi') || v.lang.includes('IN')) && isSafe(v)) || null;
+      
+      // PRIORITY 2: Any English non-male voice
+      const englishFemale = safeVoices.find(v => v.lang.startsWith('en'));
+      if (englishFemale) {
+        console.log('Selected English female voice:', englishFemale.name);
+        return englishFemale;
+      }
+      
+      // LAST RESORT: First safe voice
+      console.log('Using first safe voice as English fallback:', safeVoices[0]?.name);
+      return safeVoices[0] || null;
     }
   };
 
@@ -313,14 +377,36 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = languageConfig[language].speechLang;
-    utterance.rate = speechRate;
-    utterance.pitch = speechPitch;
+    
+    // Optimize for cute, young, sweet female voice
+    if (language === 'telugu') {
+      // Telugu: Slower for clarity, higher pitch for cute goddess voice
+      utterance.rate = 0.75;
+      utterance.pitch = 1.35;
+    } else {
+      // English: Natural but still sweet and feminine
+      utterance.rate = speechRate;
+      utterance.pitch = speechPitch;
+    }
 
     const femaleVoice = pickFemaleVoice(language);
-    if (femaleVoice) utterance.voice = femaleVoice;
+    if (femaleVoice) {
+      utterance.voice = femaleVoice;
+      console.log(`Speaking with voice: ${femaleVoice.name} (${femaleVoice.lang})`);
+    } else {
+      console.warn('No suitable female voice found, using default');
+    }
 
-    utterance.onend = () => { setIsSpeaking(false); setConversationState(ConversationState.IDLE); };
-    utterance.onerror = () => { setIsSpeaking(false); setConversationState(ConversationState.IDLE); };
+    utterance.onend = () => { 
+      setIsSpeaking(false); 
+      setConversationState(ConversationState.IDLE); 
+    };
+    utterance.onerror = (e) => { 
+      console.error('Speech synthesis error:', e);
+      setIsSpeaking(false); 
+      setConversationState(ConversationState.IDLE); 
+    };
+    
     synthRef.current.speak(utterance);
   };
 
