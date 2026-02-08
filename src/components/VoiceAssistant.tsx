@@ -227,25 +227,80 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
 
   const pickFemaleVoice = (language: Language): SpeechSynthesisVoice | null => {
     const allVoices = voicesRef.current;
-    // Blacklist known male voice keywords
-    const maleNames = ['david', 'james', 'daniel', 'mark', 'alex', 'fred', 'thomas', 'guy', 'rishi', 'aaron', 'albert', 'bruce', 'charles', 'gordon', 'jacques', 'jorge', 'lee', 'luca', 'oliver', 'reed', 'rocko', 'sandy', 'shelley', 'tom', 'grandpa', 'eddy', 'ralph'];
-    const isFemale = (v: SpeechSynthesisVoice) => !maleNames.some(n => v.name.toLowerCase().includes(n));
+    
+    // Comprehensive male voice blacklist — block ALL known male voices across all platforms
+    const maleNames = [
+      'david', 'james', 'daniel', 'mark', 'alex', 'fred', 'thomas', 'guy', 'rishi',
+      'aaron', 'albert', 'bruce', 'charles', 'gordon', 'jacques', 'jorge', 'lee',
+      'luca', 'oliver', 'reed', 'rocko', 'sandy', 'shelley', 'tom', 'grandpa',
+      'eddy', 'ralph', 'junior', 'evan', 'lekha', 'neel', 'ravi', 'kumar',
+      'martin', 'arthur', 'grandma', 'trinoids', 'organ', 'superstar', 'zarvox',
+      'bahh', 'boing', 'bubbles', 'cellos', 'whisper', 'wobble', 'bad news',
+      'good news', 'bells', 'deranged', 'hysterical', 'ralph', 'albert',
+      'male', 'masculine', 'man', 'boy', 'sir', 'mr.', 'gentleman',
+      'aaron', 'adam', 'adrian', 'andrew', 'anthony', 'benjamin', 'brian',
+      'caleb', 'carl', 'chris', 'christopher', 'craig', 'darren', 'derek',
+      'dmitri', 'dominic', 'donald', 'douglas', 'edward', 'elliott', 'eric',
+      'eugene', 'felipe', 'frank', 'gabriel', 'george', 'gerald', 'grant',
+      'gregory', 'hans', 'harry', 'henry', 'hugo', 'ian', 'ivan', 'jack',
+      'jason', 'jeff', 'jerome', 'joel', 'john', 'jonathan', 'joseph',
+      'juan', 'keith', 'kenneth', 'kevin', 'larry', 'leonard', 'logan',
+      'louis', 'lucas', 'luis', 'marcus', 'mario', 'matthew', 'michael',
+      'nathan', 'neil', 'nicholas', 'oscar', 'patrick', 'paul', 'peter',
+      'philip', 'rafael', 'raymond', 'richard', 'robert', 'roger', 'ronald',
+      'ryan', 'samuel', 'scott', 'sean', 'simon', 'stephen', 'steven',
+      'stuart', 'theodore', 'timothy', 'tony', 'trevor', 'tyler', 'victor',
+      'vincent', 'walter', 'wayne', 'william', 'zachary'
+    ];
+    
+    // Known female voice whitelist — prefer these explicitly
+    const femaleWhitelist = [
+      'samantha', 'karen', 'allison', 'zira', 'victoria', 'fiona', 'moira',
+      'tessa', 'veena', 'lekha', 'priya', 'anjali', 'neerja', 'riya',
+      'meera', 'siri', 'google', 'microsoft', 'female', 'woman', 'girl',
+      'lady', 'kate', 'catherine', 'emma', 'emily', 'susan', 'linda',
+      'sarah', 'alice', 'anna', 'joana', 'ioana', 'paulina', 'helena',
+      'sara', 'laura', 'ellen', 'monica', 'lucia', 'heera', 'kalpana'
+    ];
+    
+    const isDefinitelyMale = (v: SpeechSynthesisVoice) => 
+      maleNames.some(n => v.name.toLowerCase().includes(n));
+    
+    const isLikelyFemale = (v: SpeechSynthesisVoice) => 
+      femaleWhitelist.some(n => v.name.toLowerCase().includes(n));
+    
+    // Strict filter: prefer whitelisted female, then non-blacklisted
+    const isSafe = (v: SpeechSynthesisVoice) => !isDefinitelyMale(v);
 
     if (language === 'english') {
-      // Priority: Samantha > Karen > Allison > Zira > Victoria > Fiona > any female en voice
-      const preferred = ['samantha', 'karen', 'allison', 'zira', 'victoria', 'fiona', 'moira', 'tessa', 'veena'];
+      // First: try whitelisted female English voices in priority order
+      const preferred = ['samantha', 'karen', 'allison', 'zira', 'victoria', 'fiona', 'moira', 'tessa', 'veena', 'kate', 'emma', 'sarah'];
       for (const name of preferred) {
-        const v = allVoices.find(v => v.name.toLowerCase().includes(name) && v.lang.startsWith('en'));
+        const v = allVoices.find(v => v.name.toLowerCase().includes(name) && v.lang.startsWith('en') && isSafe(v));
         if (v) return v;
       }
-      // Fallback: any English voice that's not in the male blacklist
-      return allVoices.find(v => v.lang.startsWith('en') && isFemale(v)) || null;
+      // Then: any whitelisted female English voice
+      const femalEn = allVoices.find(v => v.lang.startsWith('en') && isLikelyFemale(v) && isSafe(v));
+      if (femalEn) return femalEn;
+      // Last resort: any non-male English voice
+      return allVoices.find(v => v.lang.startsWith('en') && isSafe(v)) || null;
     } else {
-      // Telugu: find any Telugu female voice
-      const teluguVoice = allVoices.find(v => v.lang.toLowerCase().includes('te') && isFemale(v));
-      if (teluguVoice) return teluguVoice;
-      // Fallback: any Hindi/Indian female voice for better desi pronunciation
-      return allVoices.find(v => (v.lang.includes('hi') || v.lang.includes('IN')) && isFemale(v)) || null;
+      // Telugu: prioritize known female Telugu/Indian voices
+      const teluguFemalePreferred = ['priya', 'anjali', 'neerja', 'riya', 'meera', 'lekha', 'heera', 'kalpana', 'veena'];
+      for (const name of teluguFemalePreferred) {
+        const v = allVoices.find(v => v.name.toLowerCase().includes(name) && (v.lang.toLowerCase().includes('te') || v.lang.includes('IN')));
+        if (v) return v;
+      }
+      // Any female Telugu voice
+      const teluguFemale = allVoices.find(v => v.lang.toLowerCase().includes('te') && isSafe(v) && isLikelyFemale(v));
+      if (teluguFemale) return teluguFemale;
+      // Any non-male Telugu voice
+      const teluguSafe = allVoices.find(v => v.lang.toLowerCase().includes('te') && isSafe(v));
+      if (teluguSafe) return teluguSafe;
+      // Fallback: female Hindi/Indian voice for natural desi pronunciation
+      const hindiFemale = allVoices.find(v => (v.lang.includes('hi') || v.lang.includes('IN')) && isSafe(v) && isLikelyFemale(v));
+      if (hindiFemale) return hindiFemale;
+      return allVoices.find(v => (v.lang.includes('hi') || v.lang.includes('IN')) && isSafe(v)) || null;
     }
   };
 
