@@ -427,11 +427,33 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
     synthRef.current.speak(utterance);
   };
 
+  // Sanitize text for TTS - remove special characters that sound uncomfortable
+  const sanitizeTextForSpeech = (text: string): string => {
+    return text
+      // Remove markdown bold/italic markers
+      .replace(/\*\*+/g, '')
+      .replace(/\*+/g, '')
+      // Remove parentheses and brackets
+      .replace(/[()[\]{}]/g, '')
+      // Remove other uncomfortable characters
+      .replace(/[#@^&~`|\\<>]/g, '')
+      // Remove multiple dashes/underscores
+      .replace(/[-_]{2,}/g, ' ')
+      // Remove bullet points and list markers
+      .replace(/^[\s]*[-•*]\s*/gm, '')
+      // Clean up multiple spaces
+      .replace(/\s{2,}/g, ' ')
+      // Clean up leading/trailing whitespace
+      .trim();
+  };
+
   const speakText = async (text: string, language: Language) => {
     if (isMuted) return;
+    // Sanitize text to remove uncomfortable characters before speaking
+    const cleanText = sanitizeTextForSpeech(text);
     // Use FREE Google TTS for perfect Telugu pronunciation
     // Falls back to browser TTS if Google TTS fails
-    await speakWithGoogleTTS(text, language);
+    await speakWithGoogleTTS(cleanText, language);
   };
 
   const getStateIcon = () => {
