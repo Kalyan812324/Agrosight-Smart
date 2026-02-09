@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useToast } from './use-toast';
@@ -52,6 +52,8 @@ const friendlyNetworkError = (error: unknown, action: string) => {
 export const useFarmFinance = () => {
   const { session, isAuthenticated } = useAuth();
   const { toast } = useToast();
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const isMountedRef = useRef(true);
   
   const [state, setState] = useState<FarmFinanceState>({
     data: null,
@@ -61,13 +63,32 @@ export const useFarmFinance = () => {
     lastSaved: null,
   });
 
+  // Cleanup on unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
   // Fetch finance data on mount (when authenticated)
   const fetchFinanceData = useCallback(async () => {
     if (!session?.access_token) {
-      return;
+      return null;
     }
 
-    setState(prev => ({ ...prev, loading: true, error: null }));
+    // Cancel previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
+    if (isMountedRef.current) {
+      setState(prev => ({ ...prev, loading: true, error: null }));
+    }
 
     try {
       const response = await fetch(`${SUPABASE_URL}/functions/v1/farm-finance`, {
@@ -76,6 +97,7 @@ export const useFarmFinance = () => {
           'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
         },
+        signal: abortControllerRef.current.signal,
       });
 
       const result = await response.json();
@@ -84,20 +106,29 @@ export const useFarmFinance = () => {
         throw new Error(result.error || 'Failed to fetch data');
       }
 
-      setState(prev => ({
-        ...prev,
-        data: result.data,
-        loading: false,
-      }));
+      if (isMountedRef.current) {
+        setState(prev => ({
+          ...prev,
+          data: result.data,
+          loading: false,
+        }));
+      }
 
       return result.data;
     } catch (error) {
+      // Ignore abort errors
+      if (error instanceof Error && error.name === 'AbortError') {
+        return null;
+      }
+      
       console.error('Error fetching finance data:', error);
-      setState(prev => ({
-        ...prev,
-        loading: false,
-        error: friendlyNetworkError(error, 'load your saved finance data'),
-      }));
+      if (isMountedRef.current) {
+        setState(prev => ({
+          ...prev,
+          loading: false,
+          error: friendlyNetworkError(error, 'load your saved finance data'),
+        }));
+      }
       return null;
     }
   }, [session?.access_token]);
@@ -113,7 +144,9 @@ export const useFarmFinance = () => {
       return false;
     }
 
-    setState(prev => ({ ...prev, saving: true, error: null }));
+    if (isMountedRef.current) {
+      setState(prev => ({ ...prev, saving: true, error: null }));
+    }
 
     try {
       const response = await fetch(`${SUPABASE_URL}/functions/v1/farm-finance`, {
@@ -131,12 +164,14 @@ export const useFarmFinance = () => {
         throw new Error(result.error || 'Failed to save data');
       }
 
-      setState(prev => ({
-        ...prev,
-        data: result.data,
-        saving: false,
-        lastSaved: new Date(),
-      }));
+      if (isMountedRef.current) {
+        setState(prev => ({
+          ...prev,
+          data: result.data,
+          saving: false,
+          lastSaved: new Date(),
+        }));
+      }
 
       toast({
         title: "Data saved",
@@ -147,11 +182,14 @@ export const useFarmFinance = () => {
     } catch (error) {
       console.error('Error saving finance data:', error);
       const message = friendlyNetworkError(error, 'save your finance data');
-      setState(prev => ({
-        ...prev,
-        saving: false,
-        error: message,
-      }));
+      
+      if (isMountedRef.current) {
+        setState(prev => ({
+          ...prev,
+          saving: false,
+          error: message,
+        }));
+      }
       
       toast({
         title: "Save failed",
@@ -169,7 +207,9 @@ export const useFarmFinance = () => {
       return false;
     }
 
-    setState(prev => ({ ...prev, saving: true, error: null }));
+    if (isMountedRef.current) {
+      setState(prev => ({ ...prev, saving: true, error: null }));
+    }
 
     try {
       const response = await fetch(`${SUPABASE_URL}/functions/v1/farm-finance`, {
@@ -186,11 +226,13 @@ export const useFarmFinance = () => {
         throw new Error(result.error || 'Failed to clear data');
       }
 
-      setState(prev => ({
-        ...prev,
-        data: null,
-        saving: false,
-      }));
+      if (isMountedRef.current) {
+        setState(prev => ({
+          ...prev,
+          data: null,
+          saving: false,
+        }));
+      }
 
       toast({
         title: "Data cleared",
@@ -200,11 +242,14 @@ export const useFarmFinance = () => {
       return true;
     } catch (error) {
       console.error('Error clearing finance data:', error);
-      setState(prev => ({
-        ...prev,
-        saving: false,
-        error: friendlyNetworkError(error, 'clear your finance data'),
-      }));
+      
+      if (isMountedRef.current) {
+        setState(prev => ({
+          ...prev,
+          saving: false,
+          error: friendlyNetworkError(error, 'clear your finance data'),
+        }));
+      }
       
       return false;
     }
