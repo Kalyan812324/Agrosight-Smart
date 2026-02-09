@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -13,30 +13,68 @@ export const useAIAssistant = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const isMountedRef = useRef(true);
 
-  const streamChat = async (
+  // Cleanup on unmount to prevent memory leaks
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      // Abort any ongoing requests on unmount
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+    };
+  }, []);
+
+  // Safe state setter that checks if component is still mounted
+  const safeSetState = useCallback(<T,>(setter: React.Dispatch<React.SetStateAction<T>>, value: React.SetStateAction<T>) => {
+    if (isMountedRef.current) {
+      setter(value);
+    }
+  }, []);
+
+  const streamChat = useCallback(async (
     userMessage: string,
     language: 'english' | 'telugu',
     onDelta: (deltaText: string) => void,
     onDone: () => void
   ) => {
-    const newMessages = [...messages, { role: 'user' as const, content: userMessage, timestamp: new Date() }];
-    setMessages(newMessages);
-    setIsLoading(true);
-    setError(null);
+    // Validate input
+    if (!userMessage?.trim()) {
+      onDone();
+      return;
+    }
 
+    const newMessages = [...messages, { role: 'user' as const, content: userMessage, timestamp: new Date() }];
+    safeSetState(setMessages, newMessages);
+    safeSetState(setIsLoading, true);
+    safeSetState(setError, null);
+
+    // Cancel any previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
     abortControllerRef.current = new AbortController();
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      
+      if (!supabaseUrl) {
+        throw new Error('Supabase configuration missing');
+      }
+
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`,
+        `${supabaseUrl}/functions/v1/ai-assistant`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            'Authorization': `Bearer ${session?.access_token || publishableKey}`,
           },
           body: JSON.stringify({
             messages: newMessages.map(m => ({ role: m.role, content: m.content })),
@@ -49,7 +87,7 @@ export const useAIAssistant = () => {
       // Handle specific error codes
       if (response.status === 429) {
         const errorMsg = 'Rate limit exceeded. Please wait a moment and try again.';
-        setError(errorMsg);
+        safeSetState(setError, errorMsg);
         toast.error(errorMsg);
         onDone();
         return;
@@ -57,7 +95,7 @@ export const useAIAssistant = () => {
 
       if (response.status === 402) {
         const errorMsg = 'AI credits exhausted. Please add credits to your workspace.';
-        setError(errorMsg);
+        safeSetState(setError, errorMsg);
         toast.error(errorMsg);
         onDone();
         return;
@@ -66,7 +104,7 @@ export const useAIAssistant = () => {
       if (!response.ok || !response.body) {
         const errorData = await response.json().catch(() => ({}));
         const errorMsg = errorData.error || 'Failed to connect to AI assistant';
-        setError(errorMsg);
+        safeSetState(setError, errorMsg);
         toast.error(errorMsg);
         onDone();
         return;
@@ -78,7 +116,7 @@ export const useAIAssistant = () => {
       let streamDone = false;
       let assistantContent = '';
 
-      while (!streamDone) {
+      while (!streamDone && isMountedRef.current) {
         const { done, value } = await reader.read();
         if (done) break;
         
@@ -102,7 +140,7 @@ export const useAIAssistant = () => {
           try {
             const parsed = JSON.parse(jsonStr);
             const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (content) {
+            if (content && isMountedRef.current) {
               assistantContent += content;
               onDelta(content);
             }
@@ -114,9 +152,9 @@ export const useAIAssistant = () => {
       }
 
       // Add complete assistant message
-      if (assistantContent) {
+      if (assistantContent && isMountedRef.current) {
         setMessages(prev => [...prev, { 
-          role: 'assistant', 
+          role: 'assistant' as const, 
           content: assistantContent, 
           timestamp: new Date() 
         }]);
@@ -124,27 +162,33 @@ export const useAIAssistant = () => {
 
       onDone();
     } catch (error: unknown) {
-      if (error instanceof Error && error.name !== 'AbortError') {
-        console.error('AI streaming error:', error);
-        const errorMsg = 'Connection error. Please check your network and try again.';
-        setError(errorMsg);
-        toast.error(errorMsg);
-        onDone();
+      if (error instanceof Error && error.name === 'AbortError') {
+        // Request was intentionally aborted, don't show error
+        return;
       }
+      
+      console.error('AI streaming error:', error);
+      const errorMsg = 'Connection error. Please check your network and try again.';
+      safeSetState(setError, errorMsg);
+      toast.error(errorMsg);
+      onDone();
     } finally {
-      setIsLoading(false);
+      safeSetState(setIsLoading, false);
     }
-  };
+  }, [messages, safeSetState]);
 
-  const stopGeneration = () => {
-    abortControllerRef.current?.abort();
-    setIsLoading(false);
-  };
+  const stopGeneration = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    safeSetState(setIsLoading, false);
+  }, [safeSetState]);
 
-  const clearMessages = () => {
-    setMessages([]);
-    setError(null);
-  };
+  const clearMessages = useCallback(() => {
+    safeSetState(setMessages, []);
+    safeSetState(setError, null);
+  }, [safeSetState]);
 
   return {
     messages,

@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Navigation from "./components/Navigation";
 import FloatingVoiceButton from "./components/FloatingVoiceButton";
 import ProtectedRoute from "./components/ProtectedRoute";
+import ErrorBoundary from "./components/ErrorBoundary";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import Weather from "./pages/Weather";
@@ -18,61 +19,90 @@ import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+// Configure QueryClient with retry and error handling
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      refetchOnWindowFocus: false,
+    },
+    mutations: {
+      retry: 1,
+    },
+  },
+});
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Navigation />
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<Index />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          
-          {/* Protected Routes - Require Authentication */}
-          <Route path="/dashboard" element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          } />
-          <Route path="/weather" element={
-            <ProtectedRoute>
-              <Weather />
-            </ProtectedRoute>
-          } />
-          <Route path="/yield-predictor" element={
-            <ProtectedRoute>
-              <YieldPredictor />
-            </ProtectedRoute>
-          } />
-          <Route path="/market-forecast" element={
-            <ProtectedRoute>
-              <MarketForecast />
-            </ProtectedRoute>
-          } />
-          <Route path="/loan-calculator" element={
-            <ProtectedRoute>
-              <LoanCalculator />
-            </ProtectedRoute>
-          } />
-          <Route path="/expense-analyzer" element={
-            <ProtectedRoute>
-              <ExpenseAnalyzer />
-            </ProtectedRoute>
-          } />
-          
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-        <FloatingVoiceButton />
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <ErrorBoundary>
+            <Navigation />
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/" element={<Index />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              
+              {/* Protected Routes - Require Authentication */}
+              <Route path="/dashboard" element={
+                <ProtectedRoute>
+                  <ErrorBoundary>
+                    <Dashboard />
+                  </ErrorBoundary>
+                </ProtectedRoute>
+              } />
+              <Route path="/weather" element={
+                <ProtectedRoute>
+                  <ErrorBoundary>
+                    <Weather />
+                  </ErrorBoundary>
+                </ProtectedRoute>
+              } />
+              <Route path="/yield-predictor" element={
+                <ProtectedRoute>
+                  <ErrorBoundary>
+                    <YieldPredictor />
+                  </ErrorBoundary>
+                </ProtectedRoute>
+              } />
+              <Route path="/market-forecast" element={
+                <ProtectedRoute>
+                  <ErrorBoundary>
+                    <MarketForecast />
+                  </ErrorBoundary>
+                </ProtectedRoute>
+              } />
+              <Route path="/loan-calculator" element={
+                <ProtectedRoute>
+                  <ErrorBoundary>
+                    <LoanCalculator />
+                  </ErrorBoundary>
+                </ProtectedRoute>
+              } />
+              <Route path="/expense-analyzer" element={
+                <ProtectedRoute>
+                  <ErrorBoundary>
+                    <ExpenseAnalyzer />
+                  </ErrorBoundary>
+                </ProtectedRoute>
+              } />
+              
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+            <FloatingVoiceButton />
+          </ErrorBoundary>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;
