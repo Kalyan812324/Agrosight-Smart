@@ -237,7 +237,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
       console.log('Google TTS audio playing successfully');
     } catch (error) {
       console.error('Google TTS error, falling back to browser TTS:', error);
-      // Fallback to browser TTS if Google fails
+      // Fallback to browser TTS if Google fails - text is already sanitized in speakText
       speakWithBrowser(text, language);
     }
   };
@@ -427,22 +427,45 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
     synthRef.current.speak(utterance);
   };
 
-  // Sanitize text for TTS - remove special characters that sound uncomfortable
+  // Sanitize text for TTS - remove ALL special characters that sound uncomfortable
   const sanitizeTextForSpeech = (text: string): string => {
     return text
-      // Remove markdown bold/italic markers
-      .replace(/\*\*+/g, '')
-      .replace(/\*+/g, '')
-      // Remove parentheses and brackets
+      // Remove markdown bold/italic markers (** and *)
+      .replace(/\*{1,}/g, '')
+      // Remove hash/heading markers
+      .replace(/#{1,}/g, '')
+      // Remove parentheses and brackets completely
       .replace(/[()[\]{}]/g, '')
-      // Remove other uncomfortable characters
-      .replace(/[#@^&~`|\\<>]/g, '')
-      // Remove multiple dashes/underscores
+      // Remove angle brackets
+      .replace(/[<>]/g, '')
+      // Remove pipes, backslashes, tildes, backticks, carets
+      .replace(/[|\\~`^]/g, '')
+      // Remove @ and & symbols
+      .replace(/[@&]/g, '')
+      // Remove quotes that might be read as "quote"
+      .replace(/["']/g, '')
+      // Remove colons except in time formats (keep 10:30 but remove others)
+      .replace(/:\s/g, '. ')
+      // Remove semicolons
+      .replace(/;/g, ',')
+      // Remove multiple dashes/underscores (keep single dash for hyphenated words)
       .replace(/[-_]{2,}/g, ' ')
-      // Remove bullet points and list markers
-      .replace(/^[\s]*[-•*]\s*/gm, '')
+      // Remove standalone dashes
+      .replace(/\s-\s/g, ' ')
+      // Remove bullet points and list markers at start of lines
+      .replace(/^[\s]*[-•●○◦▪▸►]\s*/gm, '')
+      // Remove numbered list markers like "1." or "1)"
+      .replace(/^\s*\d+[.)]\s*/gm, '')
+      // Remove emoji-like patterns
+      .replace(/[:;][-']?[()DPp]/g, '')
+      // Remove URLs
+      .replace(/https?:\/\/[^\s]+/g, '')
+      // Remove email patterns
+      .replace(/\S+@\S+\.\S+/g, '')
       // Clean up multiple spaces
       .replace(/\s{2,}/g, ' ')
+      // Clean up multiple periods
+      .replace(/\.{2,}/g, '.')
       // Clean up leading/trailing whitespace
       .trim();
   };
@@ -451,8 +474,9 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
     if (isMuted) return;
     // Sanitize text to remove uncomfortable characters before speaking
     const cleanText = sanitizeTextForSpeech(text);
+    console.log('Sanitized text for TTS:', cleanText.substring(0, 100));
     // Use FREE Google TTS for perfect Telugu pronunciation
-    // Falls back to browser TTS if Google TTS fails
+    // Falls back to browser TTS if Google TTS fails (with same sanitized text)
     await speakWithGoogleTTS(cleanText, language);
   };
 
