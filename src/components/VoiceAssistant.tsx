@@ -189,16 +189,23 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
 
       console.log(`Using Google TTS for ${language}: "${text.slice(0, 50)}..."`);
 
+      const supabaseUrl = 'https://xllpedrhhzoljkfvkgef.supabase.co';
+      const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhsbHBlZHJoaHpvbGprZnZrZ2VmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQxNDY2ODQsImV4cCI6MjA2OTcyMjY4NH0.y5uFWQdULq1GFDE4jb64iHtW0u8qZghm83YZlaYBqvk';
+
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-tts`,
+        `${supabaseUrl}/functions/v1/google-tts`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`,
           },
-          body: JSON.stringify({ text, language }),
+          body: JSON.stringify({
+            text,
+            language,
+            speed: language === 'telugu' ? 1.0 : speechRate,
+          }),
         }
       );
 
@@ -217,8 +224,8 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
       const audioUrl = URL.createObjectURL(audioBlob);
       const audio = new Audio(audioUrl);
       
-      // Slightly faster playback for natural flow
-      audio.playbackRate = language === 'telugu' ? 1.0 : 1.05;
+      // Apply client-side playback rate for fine-tuning
+      audio.playbackRate = language === 'telugu' ? 1.0 : Math.max(0.8, Math.min(1.5, speechRate));
       
       audio.onended = () => {
         setIsSpeaking(false);
@@ -237,7 +244,6 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
       console.log('Google TTS audio playing successfully');
     } catch (error) {
       console.error('Google TTS error, falling back to browser TTS:', error);
-      // Fallback to browser TTS if Google fails - text is already sanitized in speakText
       speakWithBrowser(text, language);
     }
   };
