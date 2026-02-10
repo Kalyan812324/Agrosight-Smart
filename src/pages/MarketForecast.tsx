@@ -142,11 +142,16 @@ const MarketForecast = () => {
     setIsLoading(true);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch(
         `https://xllpedrhhzoljkfvkgef.supabase.co/functions/v1/market-forecast`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token}`,
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhsbHBlZHJoaHpvbGprZnZrZ2VmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQxNDY2ODQsImV4cCI6MjA2OTcyMjY4NH0.y5uFWQdULq1GFDE4jb64iHtW0u8qZghm83YZlaYBqvk'
+          },
           body: JSON.stringify({
             state: selectedState,
             district: selectedDistrict,

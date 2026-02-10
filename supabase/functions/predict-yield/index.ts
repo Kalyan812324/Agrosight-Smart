@@ -463,6 +463,31 @@ serve(async (req) => {
   }
 
   try {
+    // Authentication check
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication' }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const data: PredictionRequest = await req.json();
     
     // Validate required fields
@@ -584,7 +609,7 @@ serve(async (req) => {
     const err = error as Error;
     console.error("Prediction error:", err);
     return new Response(
-      JSON.stringify({ error: "Prediction failed", details: err.message }),
+      JSON.stringify({ error: "Prediction failed" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

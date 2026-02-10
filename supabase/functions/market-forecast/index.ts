@@ -337,6 +337,30 @@ serve(async (req) => {
   }
 
   try {
+    // Authentication check
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseAuth = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid authentication' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const body = await req.json() as ForecastRequest;
     const { state, district, market, commodity, variety, horizon = 7, ml_api_url } = body;
 
@@ -486,8 +510,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: err.message || 'Forecast generation failed',
-        details: err.stack 
+        error: 'Forecast generation failed'
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
