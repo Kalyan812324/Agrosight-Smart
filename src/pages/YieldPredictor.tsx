@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -209,11 +210,16 @@ const YieldPredictor = () => {
     setIsLoading(true);
     
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/predict-yield`,
+        `https://xllpedrhhzoljkfvkgef.supabase.co/functions/v1/predict-yield`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session?.access_token}`,
+            "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhsbHBlZHJoaHpvbGprZnZrZ2VmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQxNDY2ODQsImV4cCI6MjA2OTcyMjY4NH0.y5uFWQdULq1GFDE4jb64iHtW0u8qZghm83YZlaYBqvk"
+          },
           body: JSON.stringify({
             crop: validatedData.crop,
             state: validatedData.state,
