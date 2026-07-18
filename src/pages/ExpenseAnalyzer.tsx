@@ -136,13 +136,29 @@ const ExpenseAnalyzer = () => {
     }
   }, [savedData]);
 
-  // Load yield prediction from localStorage (set by YieldPredictor) - only if no saved data
+  // Load yield prediction from sessionStorage (set by YieldPredictor) - only if no saved data.
+  // Uses sessionStorage + 24h expiration + one-shot consume to minimize persistence.
   useEffect(() => {
     if (!savedData) {
-      const savedPrediction = localStorage.getItem('yieldPredictionForExpenseAnalyzer');
+      // Migrate/cleanup any legacy localStorage entry from prior versions
+      const legacy = localStorage.getItem('yieldPredictionForExpenseAnalyzer');
+      if (legacy && !sessionStorage.getItem('yieldPredictionForExpenseAnalyzer')) {
+        sessionStorage.setItem('yieldPredictionForExpenseAnalyzer', legacy);
+      }
+      localStorage.removeItem('yieldPredictionForExpenseAnalyzer');
+
+      const savedPrediction = sessionStorage.getItem('yieldPredictionForExpenseAnalyzer');
       if (savedPrediction) {
         try {
           const parsed = JSON.parse(savedPrediction);
+          // Expire after 24h
+          const ageHours = parsed.timestamp
+            ? (Date.now() - new Date(parsed.timestamp).getTime()) / 36e5
+            : Infinity;
+          if (ageHours > 24) {
+            sessionStorage.removeItem('yieldPredictionForExpenseAnalyzer');
+            return;
+          }
           setPredictions(prev => ({
             ...prev,
             predictedYield: parsed.totalProduction || null,
@@ -153,8 +169,11 @@ const ExpenseAnalyzer = () => {
             isFromYieldPredictor: true,
           }));
           setHasUnsavedChanges(true);
+          // One-shot consume: clear after loading into state
+          sessionStorage.removeItem('yieldPredictionForExpenseAnalyzer');
         } catch (e) {
           console.error('Failed to parse saved prediction:', e);
+          sessionStorage.removeItem('yieldPredictionForExpenseAnalyzer');
         }
       }
     }

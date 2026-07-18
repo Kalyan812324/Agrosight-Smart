@@ -244,7 +244,9 @@ const YieldPredictor = () => {
       const result = await response.json();
       setPrediction(result);
       
-      // Save prediction to localStorage for ExpenseAnalyzer integration
+      // Save prediction to sessionStorage for ExpenseAnalyzer integration
+      // Using sessionStorage (clears on browser close) instead of localStorage
+      // to reduce XSS/persistence exposure surface.
       const expenseAnalyzerData = {
         totalProduction: result.prediction.totalProduction * 1000, // Convert tonnes to kg
         pricePerKg: result.financialProjection?.pricePerQuintal 
@@ -253,7 +255,13 @@ const YieldPredictor = () => {
         cropType: validatedData.crop,
         timestamp: new Date().toISOString(),
       };
-      localStorage.setItem('yieldPredictionForExpenseAnalyzer', JSON.stringify(expenseAnalyzerData));
+      try {
+        sessionStorage.setItem('yieldPredictionForExpenseAnalyzer', JSON.stringify(expenseAnalyzerData));
+        // Clean up any legacy localStorage value from prior versions
+        localStorage.removeItem('yieldPredictionForExpenseAnalyzer');
+      } catch (e) {
+        console.error('Failed to store prediction handoff:', e);
+      }
       
       toast({
         title: "Prediction Complete",
