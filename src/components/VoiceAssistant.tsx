@@ -682,7 +682,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
             </Button>
             
             <Button
-              onClick={() => setIsMuted(!isMuted)}
+              onClick={() => { if (!isMuted) stopSpeaking(); setIsMuted(!isMuted); }}
               variant={isMuted ? "outline" : "secondary"}
               size="sm"
             >
@@ -702,7 +702,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
             <Input
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
               placeholder={currentLanguage === 'telugu' ? 'ఇక్కడ టైప్ చేయండి...' : 'Type your message...'}
               disabled={isLoading}
               className="flex-1"
