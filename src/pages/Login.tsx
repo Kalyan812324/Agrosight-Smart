@@ -24,8 +24,14 @@ const Login = () => {
   const { signIn } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard';
+
+  const searchParams = new URLSearchParams(location.search);
+  const nextRaw = searchParams.get('next');
+  // Only accept same-origin relative paths for `next`.
+  const next = nextRaw && nextRaw.startsWith('/') && !nextRaw.startsWith('//') ? nextRaw : null;
+  const from = next
+    || (location.state as { from?: { pathname: string } })?.from?.pathname
+    || '/dashboard';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
