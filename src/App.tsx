@@ -17,6 +17,7 @@ import ExpenseAnalyzer from "./pages/ExpenseAnalyzer";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
+import OAuthConsent from "./pages/OAuthConsent";
 import NotFound from "./pages/NotFound";
 
 // Configure QueryClient with retry and error handling
@@ -49,6 +50,7 @@ const App = () => (
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
               
               {/* Protected Routes - Require Authentication */}
               <Route path="/dashboard" element={
