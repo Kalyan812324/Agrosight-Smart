@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.google-tts]
 verify_jwt = false
+
+[functions.mcp]
+verify_jwt = false
