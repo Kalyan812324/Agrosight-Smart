@@ -39,6 +39,28 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
   const synthRef = useRef<SpeechSynthesis | null>(null);
   const voicesRef = useRef<SpeechSynthesisVoice[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioUrlRef = useRef<string | null>(null);
+
+  // Stop any currently-playing TTS audio and revoke its blob URL.
+  const stopSpeaking = () => {
+    if (audioRef.current) {
+      try {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      } catch {}
+      audioRef.current = null;
+    }
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = null;
+    }
+    if (synthRef.current) {
+      try { synthRef.current.cancel(); } catch {}
+    }
+    setIsSpeaking(false);
+    setConversationState(prev => prev === ConversationState.SPEAKING ? ConversationState.IDLE : prev);
+  };
 
   const languageConfig = {
     english: {
@@ -106,15 +128,15 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
       if (recognitionRef.current) {
         recognitionRef.current.abort();
       }
-      if (synthRef.current) {
-        synthRef.current.cancel();
-      }
+      stopSpeaking();
     };
   }, [currentLanguage]);
 
   const startListening = async () => {
     try {
       if (recognitionRef.current && !isListening) {
+        // Prevent feedback loop: mic must not capture assistant's own TTS.
+        stopSpeaking();
         recognitionRef.current.lang = languageConfig[currentLanguage].speechLang;
         recognitionRef.current.start();
         setIsListening(true);
@@ -144,7 +166,10 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
 
   const handleUserInput = async (input: string) => {
     if (!input.trim()) return;
-    
+
+    // Cancel any in-flight audio before starting a new turn.
+    stopSpeaking();
+
     setConversationState(ConversationState.PROCESSING);
     setStreamingText('');
     
@@ -223,7 +248,9 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
 
       const audioUrl = URL.createObjectURL(audioBlob);
       const audio = new Audio(audioUrl);
-      
+      audioRef.current = audio;
+      audioUrlRef.current = audioUrl;
+
       // Apply client-side playback rate for fine-tuning
       audio.playbackRate = language === 'telugu' ? 1.0 : Math.max(0.8, Math.min(1.5, speechRate));
       
@@ -231,6 +258,8 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
         setIsSpeaking(false);
         setConversationState(ConversationState.IDLE);
         URL.revokeObjectURL(audioUrl);
+        if (audioRef.current === audio) audioRef.current = null;
+        if (audioUrlRef.current === audioUrl) audioUrlRef.current = null;
       };
       
       audio.onerror = (e) => {
@@ -238,6 +267,8 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
         setIsSpeaking(false);
         setConversationState(ConversationState.IDLE);
         URL.revokeObjectURL(audioUrl);
+        if (audioRef.current === audio) audioRef.current = null;
+        if (audioUrlRef.current === audioUrl) audioUrlRef.current = null;
       };
 
       await audio.play();
@@ -651,7 +682,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
             </Button>
             
             <Button
-              onClick={() => setIsMuted(!isMuted)}
+              onClick={() => { if (!isMuted) stopSpeaking(); setIsMuted(!isMuted); }}
               variant={isMuted ? "outline" : "secondary"}
               size="sm"
             >
@@ -671,7 +702,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ className }) => {
             <Input
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
               placeholder={currentLanguage === 'telugu' ? 'ఇక్కడ టైప్ చేయండి...' : 'Type your message...'}
               disabled={isLoading}
               className="flex-1"
